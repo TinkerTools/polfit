@@ -1,0 +1,13 @@
+setup.py
+analyzetool/__init__.py
+analyzetool/auxtinker.py
+analyzetool/gas.py
+analyzetool/liquid.py
+analyzetool/process.py
+analyzetool/xyztopsi4.py
+analyzetool.egg-info/PKG-INFO
+analyzetool.egg-info/SOURCES.txt
+analyzetool.egg-info/dependency_links.txt
+analyzetool.egg-info/not-zip-safe
+analyzetool.egg-info/requires.txt
+analyzetool.egg-info/top_level.txt

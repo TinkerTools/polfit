@@ -1,0 +1,603 @@
+import numpy as np
+import os
+from . import gas
+kB = 0.008314472471220214
+atm_unit = 0.061019351687175
+bar_unit = 0.060221417930000
+prefactor = 30.348705333964077
+
+KB_J = 1.38064852e-23 #J/K
+E0 = 8.854187817620e-12
+N_vis = 8.91e-4 #Pa.s
+R=1.9872036E-3
+mw_elements = {'H': 1.00794, 'He': 4.002602, 'Li': 6.941,
+               'Be': 9.012182, 'B': 10.811, 'C': 12.0107,
+               'N': 14.0067,'O': 15.9994,'F': 18.9984032,
+               'Ne': 20.1797,'Na': 22.98976928,'Mg': 24.305,
+               'Al': 26.9815386,'Si': 28.0855,'P': 30.973762,
+               'S': 32.065,'Cl': 35.453,'Ar': 39.948,
+               'K': 39.0983,'Ca': 40.078,'Sc': 44.955912,
+               'Ti': 47.867,'V': 50.9415, 'Cr': 51.9961,
+               'Mn': 54.938045,'Fe': 55.845,'Co': 58.933195,
+               'Ni': 58.6934,'Cu': 63.546,'Zn': 65.409,
+               'Ga': 69.723,'Ge': 72.64,'As': 74.9216,
+               'Se': 78.96,'Br': 79.904,'Kr': 83.798,
+               'Rb': 85.4678,'Sr': 87.62, 'Y': 88.90585,
+               'Zr': 91.224,'Nb': 92.90638,'Mo': 95.94,
+               'Tc': 98.9063,'Ru': 101.07,'Rh': 102.9055,
+               'Pd': 106.42,'Ag': 107.8682,'Cd': 112.411,
+               'In': 114.818,'Sn': 118.71,'Sb': 121.76,
+               'Te': 127.6,'I': 126.90447,'Xe': 131.293,
+               'Cs': 132.9054519,'Ba': 137.327,'La': 138.90547,
+               'Ce': 140.116,'Pr': 140.90465,'Nd': 144.242,
+               'Pm': 146.9151,'Sm': 150.36,'Eu': 151.964,
+               'Gd': 157.25,'Tb': 158.92535,'Dy': 162.5,
+               'Ho': 164.93032,'Er': 167.259,'Tm': 168.93421,
+               'Yb': 173.04,'Lu': 174.967,'Hf': 178.49,
+               'Ta': 180.9479,'W': 183.84,'Re': 186.207,
+               'Os': 190.23,'Ir': 192.217,'Pt': 195.084,
+               'Au': 196.966569,'Hg': 200.59,'Tl': 204.3833,
+               'Pb': 207.2,'Bi': 208.9804,'Po': 208.9824,
+               'At': 209.9871,'Rn': 222.0176,'Fr': 223.0197,
+               'Ra': 226.0254,'Ac': 227.0278,'Th': 232.03806,
+               'Pa': 231.03588,'U': 238.02891,'Np': 237.0482,
+               'Pu': 244.0642,'Am': 243.0614,'Cm': 247.0703,
+               'Bk': 247.0703,'Cf': 251.0796,'Es': 252.0829,
+               'Fm': 257.0951,'Md': 258.0951,'No': 259.1009,
+               'Lr': 262,'Rf': 267,'Db': 268,'Sg': 271,
+               'Bh': 270,'Hs': 269,'Mt': 278,'Ds': 281,
+               'Rg': 281,'Cn': 285,'Nh': 284,'Fl': 289,
+               'Mc': 289,'Lv': 292,'Ts': 294,'Og': 294,
+               'ZERO': 0} 
+
+
+def bzavg(obs,boltz):
+    """ Get the Boltzmann average of an observable. """
+    if obs.ndim == 2:
+        if obs.shape[0] == len(boltz) and obs.shape[1] == len(boltz):
+            raise Exception('Error - both dimensions have length equal to number of snapshots, now confused!')
+        elif obs.shape[0] == len(boltz):
+            return np.sum(obs*boltz.reshape(-1,1),axis=0)/np.sum(boltz)
+        elif obs.shape[1] == len(boltz):
+            return np.sum(obs*boltz,axis=1)/np.sum(boltz)
+        else:
+            raise Exception('The dimensions are wrong!')
+    elif obs.ndim == 1:
+        return np.dot(obs,boltz)/sum(boltz)
+    else:
+        raise Exception('The number of dimensions can only be 1 or 2!')
+
+
+def convert_float(string):
+    a = True
+    try:
+        a = float(string)
+        err = False
+    except:
+        err = True
+        a = -100
+    return a, err
+class Liquid(object):
+    def __init__(self, sim_path,xyzfile='liquid.xyz',monfile='gas.xyz',temperature=298.15,equil=200,
+                 logfile='liquid.log', analyzelog=None):
+
+        """syntax : Liquid(simulation_path,temp. of simulation,
+        number of steps to consider as equilibration,
+        name of log file of dynamics, name of xyz file,(optional) name of 
+        analyze log file"""
+        try:
+            xyz_fn = os.path.join(sim_path,monfile)
+            f = open(xyz_fn)
+            lines = f.readlines()
+            f.close()
+        except:
+            f = open(monfile)
+            lines = f.readlines()
+            f.close()
+
+        try:
+            elements = [a.split()[1] for a in lines[1:]]
+            float(mw_elements[elements[0]])
+        except:
+            elements = [a.split()[1] for a in lines[2:]]
+            float(mw_elements[elements[0]])
+
+        Nmonomer = int(len(elements))
+
+        xyz_fn = os.path.join(sim_path,xyzfile)
+        f = open(xyz_fn)
+        lines = f.readlines()
+        f.close()
+
+        try:
+            elements = [a.split()[1] for a in lines[1:]]
+            float(mw_elements[elements[0]])
+        except:
+            elements = [a.split()[1] for a in lines[2:]]
+            float(mw_elements[elements[0]])
+
+        total_mass = 0
+        for X in elements:
+            total_mass += float(mw_elements[X])  
+
+        self.mass = total_mass
+        self.Nmol = int(len(elements)/Nmonomer)
+        self.Natoms = int(len(elements))
+
+        R=1.9872036e-3
+        T = temperature
+        kT = R * T
+        mBeta = -1.0 / kT
+        Beta = 1.0 / kT
+
+        self.equil = equil
+        self.path = sim_path
+        self.T = temperature
+        self.avgPE = 0
+        self.avgKE = 0
+
+        self.KE = []
+        self.PE = []
+
+        edyn = []
+        kdyn = []
+        dens = []
+        vol = []
+
+        self.H = 0
+        self.avgPE = 0
+        self.avgKE = 0
+        
+        self.PEmol = 0
+        self.avgVol = 0
+        self.avgRho = 0
+        self.median_diffusion = 0
+
+        self.Vol = []
+        self.Rhos = []
+        self.error = False
+        error = []
+        if logfile is not None:
+            liqlog = os.path.join(sim_path,logfile)
+                
+
+            if os.path.isfile(liqlog):
+                f = open(liqlog,'r')
+                dt = f.readlines()
+                f.close()
+
+                for line in dt:
+                    s = line.split()
+                    if 'Current Potential' in line:
+                        val, err = convert_float(s[2])
+                        edyn.append(val)
+                        error.append(err)
+                    if 'Current Kinetic' in line:
+                        val, err = convert_float(s[2])
+                        kdyn.append(val)
+                    if 'Density' in line:
+                        val, err = convert_float(s[1])
+                        dens.append(val)
+                    if 'Lattice Lengths' in line:
+                        val, err = convert_float(s[2])
+                        vol.append(np.power(val,3))
+
+            if any(error):
+                self.error = True
+
+            eq = int(equil)
+            self.PE = np.array(edyn)
+            self.KE = np.array(kdyn)
+
+            frm_nm = min(self.PE.shape[0],self.KE.shape[0])
+            self.H = self.PE[:frm_nm]+self.KE[:frm_nm]
+            self.avgPE = self.PE[eq:].mean()
+            self.avgKE = self.KE[eq:].mean()
+            
+            self.PEmol = self.avgPE/self.Nmol
+
+            if len(dens) == 0:
+                vol = np.array(vol)
+                conv = 1.6605387831627252
+                Rhos = conv * self.mass / vol
+
+            else:
+                Rhos = np.array(dens)
+                vol = np.array(vol)
+
+            self.avgVol = vol[eq:].mean()
+            self.avgRho = Rhos[eq:].mean()
+
+            self.Vol = np.copy(vol)
+            self.Rhos = np.copy(Rhos)
+
+            self.HV = 0
+
+            L = self.H[eq:].shape[0]
+
+            Nmol = self.Nmol
+            NMol = self.Nmol
+            def calc_alpha(b = None, **kwargs):
+                if 'h_' in kwargs:
+                    h_ = kwargs['h_']
+                if 'v_' in kwargs:
+                    v_ = kwargs['v_']
+                L = v_.shape[0]
+                if b is None: b = np.ones(L,dtype=float)
+                return 1/(kT*T) * (bzavg(h_*v_,b)-bzavg(h_,b)*bzavg(v_,b))/bzavg(v_,b)
+
+            def calc_kappa(self,Vol):
+                KB_J = 1.38064852E-23
+                eq = self.equil
+                T = self.T
+                V0 = (1e-30)*self.Vol[eq:]
+                volume_squared = V0*V0
+                avg_volume = V0.mean()
+                volume_fluct = (volume_squared.mean()-(avg_volume*avg_volume))
+
+                return (1e11)*(volume_fluct/(KB_J*T*avg_volume))
+
+            def calc_cp(b=None, **kwargs):
+                Nmol = self.Nmol
+                if 'h_' in kwargs:
+                    h_ = kwargs['h_']
+                
+                L = h_.shape[0]
+                if b is None: b = np.ones(L,dtype=float)
+                Cp_  = 1/(NMol*kT*T) * (bzavg(h_**2,b) - bzavg(h_,b)**2)
+                Cp_ *= 1000 / 4.184
+                return Cp_
+
+            def calc_eps0(b=None, **kwargs):
+                Nmol = self.Nmol
+                if 'd_' in kwargs: # Dipole moment vector.
+                    d_ = kwargs['d_']
+                if 'v_' in kwargs: # Volume.
+                    v_ = kwargs['v_']
+                L = v_.shape[0]
+                if b is None: b = np.ones(L,dtype=float)
+                b0 = np.ones(L,dtype=float)
+                dx = d_[:,0]
+                dy = d_[:,1]
+                dz = d_[:,2]
+                D2  = bzavg(dx**2,b)-bzavg(dx,b)**2
+                D2 += bzavg(dy**2,b)-bzavg(dy,b)**2
+                D2 += bzavg(dz**2,b)-bzavg(dz,b)**2
+                return prefactor*D2/bzavg(v_,b)/T
+
+            #Alpha = calc_alpha(None, **{'h_':self.H[eq:], 'v_':self.Vol[eq:]})
+            #Cp = calc_cp(None,**{'h_':self.H[eq:]})
+            #Kappa = calc_kappa(None,**{'v_':self.Vol[eq:]})
+            
+            self.dielectric = 0
+            self.Dips = []
+            #Eps0 = calc_eps0(None,**{'d_':Dips[half], 'v_':V})
+            if analyzelog is not None:
+                anal_fn = os.path.join(sim_path,analyzelog)
+            
+                if os.path.isfile(anal_fn):
+                    f = open(anal_fn,'r')
+                    dt = f.readlines()
+                    f.close()
+
+                    log = [a.strip('\n') for a in dt]
+                    dip = []
+                    for line in log:
+                        s = line.split()
+                        if 'Dipole X,Y,Z-Components' in line:
+                            dip.append([float(s[i]) for i in range(-3,0)])
+
+                    if len(dip) > 0:
+                        Dips = np.array(dip)
+
+                        frm_nm2 = min(Dips.shape[0],self.Vol.shape[0])
+                        Eps0 = calc_eps0(None,**{'d_':Dips[eq:frm_nm2], 'v_':self.Vol[eq:frm_nm2]/1000})
+                        
+                        self.Dips = np.array(dip)
+                        self.dielectric = Eps0
+                        self.analyzelog = anal_fn
+
+    def all_properties(self,gaslog,analyzelog=None):
+        """syntax : to get all properties you must specify a path for a gas 
+        log file. then, specify a liquid analyze log file.
+        all_properties(gaslog,analyzelog)"""
+        Nmol = self.Nmol
+        NMol = self.Nmol
+        def calc_alpha(b = None, **kwargs):
+            Nmol = self.Nmol
+            if 'h_' in kwargs:
+                h_ = kwargs['h_']
+            if 'v_' in kwargs:
+                v_ = kwargs['v_']
+            L = v_.shape[0]
+            if b is None: b = np.ones(L,dtype=float)
+            return 1/(kT*T) * (bzavg(h_*v_,b)-bzavg(h_,b)*bzavg(v_,b))/bzavg(v_,b)
+
+        def calc_kappa(self):
+            KB_J = 1.38064852E-23
+            eq = self.equil
+            T = self.T
+            V0 = (1e-30)*self.Vol[eq:]
+            volume_squared = V0*V0
+            avg_volume = V0.mean()
+            volume_fluct = (volume_squared.mean()-(avg_volume*avg_volume))
+
+            return (1e11)*(volume_fluct/(KB_J*T*avg_volume))
+
+        def calc_cp(b=None, **kwargs):
+            Nmol = self.Nmol
+            if 'h_' in kwargs:
+                h_ = kwargs['h_']
+            
+            L = h_.shape[0]
+            if b is None: b = np.ones(L,dtype=float)
+            Cp_  = 1/(NMol*kT*T) * (bzavg(h_**2,b) - bzavg(h_,b)**2)
+            Cp_ *= 1000
+            return Cp_
+
+        def calc_eps0(b=None, **kwargs):
+            Nmol = self.Nmol
+            if 'd_' in kwargs: # Dipole moment vector.
+                d_ = kwargs['d_']
+            if 'v_' in kwargs: # Volume.
+                v_ = kwargs['v_']
+            L = v_.shape[0]
+            if b is None: b = np.ones(L,dtype=float)
+            b0 = np.ones(L,dtype=float)
+            dx = d_[:,0]
+            dy = d_[:,1]
+            dz = d_[:,2]
+            D2  = bzavg(dx**2,b)-bzavg(dx,b)**2
+            D2 += bzavg(dy**2,b)-bzavg(dy,b)**2
+            D2 += bzavg(dz**2,b)-bzavg(dz,b)**2
+            return prefactor*D2/bzavg(v_,b)/T
+
+        if analyzelog is None:
+            try:
+                anal_fn = self.analyzelog
+            except:
+                raise Exception('Must specify analyze log file')
+        else:
+            anal_fn = os.path.join(self.path,analyzelog)
+        
+        if os.path.isfile(anal_fn):
+            f = open(anal_fn,'r')
+            dt = f.readlines()
+            f.close()
+
+            log = [a.strip('\n') for a in dt]
+        else:
+            raise Exception('The file %s does not exist' % anal_fn)
+
+        eanl = []
+        dip = []
+        vols = []
+        mass = 0.0
+
+        for ln, line in enumerate(log):
+            strip = line.strip()
+            s = line.split()
+            if 'Total System Mass' in line:
+                mass = float(s[-1])
+            if 'Total Potential Energy : ' in line:
+                eanl.append(float(s[4]))
+            if 'Dipole X,Y,Z-Components :' in line:
+                dip.append([float(s[i]) for i in range(-3,0)])
+            if 'Cell Volume' in line:
+                vols.append(float(s[-1]))
+
+        if len(dip) == 0:
+            Dips = []
+        else:
+            Dips = np.array(dip)
+        self.mass = mass
+        Potentials = np.array(eanl)
+        
+        Volumes = np.array(vols)
+        vol = np.array(vols) / 1000.0
+        conv = 1.6605387831627252
+        Rhos = conv * mass / Volumes
+
+        T = self.T
+        R=1.9872036E-3
+        kT = R * T
+        
+        mBeta = -1.0 / kT
+        Beta = 1.0 / kT
+
+        self.PE = np.array(Potentials)
+        
+        Nmol = self.Nmol
+        eq = self.equil
+        self.avgPE = self.PE[eq:].mean()
+        
+        self.avgVol = Volumes[eq:].mean()
+        self.avgRho = Rhos[eq:].mean()
+
+        self.PEmol = self.avgPE/self.Nmol
+        self.Vol = np.copy(Volumes)
+        self.Rhos = np.copy(Rhos)
+
+        if len(dip) != 0:
+            frm_nm2 = min(Dips.shape[0],Volumes.shape[0])
+            Eps0 = calc_eps0(None,**{'d_':Dips[eq:frm_nm2], 'v_':Volumes[eq:frm_nm2]/1000})
+            self.Dips = np.array(dip)
+            self.dielectric = Eps0
+        else:
+            self.dielectric = 0
+
+        frm_nm = min(self.PE.shape[0],self.Vol.shape[0])
+        self.alpha = calc_alpha(None, **{'h_':self.PE[eq:frm_nm], 'v_':self.Vol[eq:frm_nm]})
+        self.Cp = calc_cp(None,**{'h_':self.PE[eq:]})
+        self.kappa = calc_kappa(self)
+
+        if os.path.isfile(os.path.join(self.path,gaslog)):
+            gas_fn = os.path.join(self.path,gaslog)
+        else:
+            gas_fn = gaslog
+        gasdata = gas.GasLog(gas_fn)
+        self.gasAvgPE = gasdata.avgPE
+        
+        self.HV = self.gasAvgPE - (self.PEmol) + kT
+        
+        # This is how I calculated the prefactor for the dielectric constant.
+        # eps0 = 8.854187817620e-12 * coulomb**2 / newton / meter**2
+        # epsunit = 1.0*(debye**2) / nanometer**3 / BOLTZMANN_CONSTANT_kB / kelvin
+        # prefactor = epsunit/eps0/3
+
+    def get_dielectric(self,analyzelog):
+
+        if os.path.isfile(os.path.join(self.path,analyzelog)):
+            anal_fn = os.path.join(self.path,analyzelog)
+        else:
+            anal_fn = analyzelog
+        
+        if os.path.isfile(anal_fn):
+            f = open(anal_fn,'r')
+            dt = f.readlines()
+            f.close()
+
+            log = [a.strip('\n') for a in dt]
+        else:
+            raise Exception('The file %s does not exist' % anal_fn)
+
+        dip = []
+        for ln, line in enumerate(log):
+            strip = line.strip()
+            s = line.split()
+            if 'Dipole X,Y,Z-Components :' in line:
+                dip.append([float(s[i]) for i in range(-3,0)])
+
+        if len(dip) == 0:
+            print("No dipole moment data, dielectric will not be computed")
+            Dips = []
+        else:
+            Dips = np.array(dip)
+        
+        T = self.T
+        R=1.9872036E-3
+        kT = R * T
+        
+        mBeta = -1.0 / kT
+        Beta = 1.0 / kT
+
+        def calc_eps0(b=None, **kwargs):
+            Nmol = self.Nmol
+            if 'd_' in kwargs: # Dipole moment vector.
+                d_ = kwargs['d_']
+            if 'v_' in kwargs: # Volume.
+                v_ = kwargs['v_']
+            L = v_.shape[0]
+            if b is None: b = np.ones(L,dtype=float)
+            b0 = np.ones(L,dtype=float)
+            dx = d_[:,0]
+            dy = d_[:,1]
+            dz = d_[:,2]
+            D2  = bzavg(dx**2,b)-bzavg(dx,b)**2
+            D2 += bzavg(dy**2,b)-bzavg(dy,b)**2
+            D2 += bzavg(dz**2,b)-bzavg(dz,b)**2
+            return prefactor*D2/bzavg(v_,b)/T
+
+        eq = self.equil
+        if len(dip) != 0:
+            frm_nm2 = min(Dips.shape[0],self.Vol.shape[0])
+            Eps0 = calc_eps0(None,**{'d_':Dips[eq:frm_nm2], 'v_':self.Vol[eq:frm_nm2]/1000})
+            self.Dips = np.array(dip)
+            self.dielectric = Eps0
+        else:
+            self.dielectric = 0
+
+    def get_diffusion(self,analyzelog):
+
+        if os.path.isfile(os.path.join(self.path,analyzelog)):
+            anal_fn = os.path.join(self.path,analyzelog)
+        else:
+            anal_fn = analyzelog
+        
+        if os.path.isfile(anal_fn):
+            f = open(anal_fn,'r')
+            dt = f.readlines()
+            f.close()
+
+            log = [a.strip('\n') for a in dt]
+        else:
+            raise Exception('The file %s does not exist' % anal_fn)
+
+
+        for k,line in enumerate(log[0:500]):
+            tt = line.split()
+            a = len(tt)
+           
+            if a > 0:
+                try:
+                    b = float(tt[0])
+                    break
+                except:
+                    continue
+        g = log[k:]
+
+        g_data = []
+        for line in g:
+            a = line.strip('\n').split()
+            try:
+                data = [float(n) for n in a]
+                g_data.append(data)
+            except:
+                None
+
+        T = self.T
+        def diff_correction(box_size,T):
+            const = (2.837297)/(6*np.pi)
+            corr = (1e4)*const*KB_J*T/(N_vis*box_size*(1.0e-10))
+            return corr
+
+        box_size = np.cbrt(self.avgVol)
+        diff_correction = diff_correction(box_size,self.T)
+        g_data = np.array(g_data)
+        
+        self.diffusion = g_data[:,5]
+        self.median_diffusion = np.median(self.diffusion)+(1e5)*diff_correction
+
+    def get_g_r(self,analyzelog):
+        if os.path.isfile(os.path.join(self.path,analyzelog)):
+            anal_fn = os.path.join(self.path,analyzelog)
+        else:
+            anal_fn = analyzelog
+        
+        if os.path.isfile(anal_fn):
+            f = open(anal_fn,'r')
+            dt = f.readlines()
+            f.close()
+
+            log = [a.strip('\n') for a in dt]
+        else:
+            raise Exception('The file %s does not exist' % anal_fn)
+
+        if os.path.isfile(log): 
+            f = open(log,'r')
+            g = f.readlines()
+            f.close
+            
+            for k,line in enumerate(g):
+                tt = line.split()
+                
+                try:
+                    int(tt[0])
+                    begin_line = k
+                    break
+                except:
+                    continue
+        
+            g = g[begin_line:]
+
+            g_data = []
+            for line in g:
+                a = line.strip('\n').split()
+                data = [float(n) for n in a]
+                g_data.append(data)
+            g_data = np.array(g_data)
+
+            return g_data[:,2:4]
+
+
+    
