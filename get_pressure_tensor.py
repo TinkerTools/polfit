@@ -1,8 +1,15 @@
 import numpy as np
 import os
 import sys
-import math
+import gc
 import subprocess
+import time
+import analyzetool
+
+sys.path.append("/user/roseane/HIPPO/analyzetool_pkg")
+from convert_to_numpy import convert_velocity
+from convert_to_numpy import get_virial
+# from compute_visc import compute_visc
 
 def main():
     try:
@@ -14,134 +21,117 @@ def main():
         xyzfile = "liquid.xyz"
 
     try:
-        logfile = str(sys.argv[2])
-
-    except:
-        logfile = "liquid.log"
-
-    try:
-        analysis = str(sys.argv[3])
+        analysis = str(sys.argv[2])
 
     except:
         analysis = "analysis.log"
 
+    
+    try:
+        skip = int(sys.argv[3])
+
+    except:
+        skip = 1
+
+    try:
+        tensor_only = str(sys.argv[4])
+
+    except:
+        tensor_only = None
+
     if os.path.isfile(xyzfile):
-        process = subprocess.Popen("head -2 %s" % xyzfile, 
-            stdout=subprocess.PIPE,shell=True,encoding='utf8')
+        print("Starting...\n")
+        sys.stdout.flush()
 
-        output = process.stdout.readlines()
-        stdout = process.communicate()[0]
+        arcfile = analyzetool.process.ARC(xyzfile)
+        arcfile.read_xyz(xyzfile)
+        arcfile.compute_volume()
+        m_atms = arcfile.atom_map
 
-        N = int(output[0].split()[0])
-
-        lz = float(output[1].split()[2])
-        vol = lz*float(output[1].split()[0])*float(output[1].split()[1])
+        vol = (1e-30)*arcfile.volume[0]
+        basenm = xyzfile.split('/')[-1][:-4]
+        path = "/".join(os.path.abspath(xyzfile).split('/')[:-1])
+        N = int(arcfile.n_atoms)
     else:
         print("The given xyz file does not exist\n")
         sys.stdout.flush()
         return
 
-    virial_tensor = []
-    if os.path.isfile(analysis):
+    compute_all = False
+    if tensor_only == None or tensor_only == "None":
+        compute_all = True
 
-        print("Start reading virial file...\n")
-        sys.stdout.flush()
+    if compute_all:
+        if os.path.isfile(analysis):
+            virial_tensor = get_virial(analysis,path,basenm)
+        elif os.path.isfile(f"{path}/{analysis}"):
+            virial_tensor = get_virial(f"{path}/{analysis}",path,basenm)
+        elif os.path.isfile(f"{path}/{basenm}-virial.npy"):
+            virial_tensor = np.load(f"{path}/{basenm}-virial.npy")
+        else:
+            return
 
-        f = open(analysis,'r')
-        pe_data = f.readlines()
-        f.close()
-    
-        begin_lines = [dt[0:4] for dt in pe_data]
-        begin_lines = np.array(begin_lines)
-        pe_data = np.array(pe_data)
-        pe_ind = np.where(begin_lines==' Int')[0]
+        if skip != 1:
+            virial_tensor = virial_tensor[::skip]
+        nfrms = virial_tensor.shape[0]
         
-        for ind in pe_ind:
-            tt =[]
-            tv0 = pe_data[ind].strip('\n').split()[-3:]
-            tt.append([float(a) for a in tv0])
-            tv0 = pe_data[ind+1].strip('\n').split()[-3:]
-            tt.append([float(a) for a in tv0])
-            tv0 = pe_data[ind+2].strip('\n').split()[-3:]
-            tt.append([float(a) for a in tv0])
-            virial_tensor.append(tt)
+        print("Finished processing virial file...\n")
+        sys.stdout.flush()
+        
+        velocity_file = f'{path}/{basenm}.vel'
+        if os.path.isfile(velocity_file):
+            print("Start reading velocity file...\n")
+            sys.stdout.flush()
 
-    else:
-        return
+            sizefn = f"{path}/vel1.txt"
+            process = subprocess.Popen(f"tail -{N+1} {velocity_file} > {sizefn} 2>&1", 
+                                        shell=True,encoding='utf8')
             
-    virial_tensor = np.array(virial_tensor)
-    np.save("virial.npy",virial_tensor)
-    print("Finished processing virial file...\n")
-    sys.stdout.flush()
-    
-    velocity_file = xyzfile[:-4]+'.vel'
-    velocity_data = []
-    if os.path.isfile(velocity_file):
-        masses = {'H':1.0078250321,'O':15.9949146221}
-        velocity_data = []
-        
-        print("Start reading velocity file...\n")
-        sys.stdout.flush()
-
-
-        process = subprocess.Popen("tail -%d %s" % (N+1,velocity_file), 
-            stdout=subprocess.PIPE,shell=True,encoding='utf8')
-
-        output = process.stdout.readlines()
-        stdout = process.communicate()[0]
-
-        atm_type = [line.split()[1] for line in output[1:]]
-
-        m_atms = []
-        for at in range(len(atm_type)):
-            atm = atm_type[at]
-            m = masses[atm]
-            m_atms.append(m)
-
-        m_atms = np.array(m_atms)
+            time.sleep(3)
+            velocities = convert_velocity(sizefn,velocity_file,path,basenm,N,nfrms,skip)
+        elif os.path.isfile(f"{path}/{basenm}-vel.npy"):
+            velocities = np.load(f"{path}/{basenm}-vel.npy")
+        else:
+            return
 
     else:
-        return
+        print("Loading data...\n")
+        if os.path.isfile(f"{path}/{basenm}-vel.npy"):
+            velocities = np.load(f"{path}/{basenm}-vel.npy")
+            if velocities.shape[0] == 250000:
+                velocities = velocities[:125000]
+                np.save(f"{path}/{basenm}-vel.npy",velocities)
+        else:
+            return
 
-    velocity_data = np.zeros((virial_tensor.shape[0],N,3))
-
-    def proc_vel_file(k):
-        first = 1+k*(N+1)
-        last = first+N
-        cmd = "sed -n '%d,%dp;%dq' %s" % (first,last,last+1,velocity_file)
-        process = subprocess.Popen(cmd, 
-            stdout=subprocess.PIPE,shell=True,encoding='utf8')
-
-        output = process.stdout.readlines()
-        stdout = process.communicate()[0]
-
-        velocity = []
-        for line in output[1:]:
-            line2 = line.strip('\n').split()
-            v = [float(a.replace('D','e')) for a in line2[-3:]]
-            velocity.append(v)
-
-        vv = np.array(velocity)
-        velocity_data[k] = vv
-        return vv
+        if os.path.isfile(f"{path}/{basenm}-virial.npy"):
+            virial_tensor = np.load(f"{path}/{basenm}-virial.npy")
+        else:
+            return
+        
 
     print("Finished processing velocity file...\n")
     sys.stdout.flush()
-
-    pressure_tensor = np.zeros((virial_tensor.shape[0],3,3))
-
+    nfrms = virial_tensor.shape[0]
+    pressure_tensor = np.zeros((nfrms,3,3))
+    
     print("Calculating pressure tensor...\n")
     sys.stdout.flush()
 
     NA=6.02214129*(1e23)
+    div = NA*vol
+    # num_cores = 1
+    # velocity_file = np.load(f"{xyzfile[:-4]}-vel.npy")
 
-    for k in range(virial_tensor.shape[0]):
-        V = proc_vel_file(k)
-
+    # split_frms = list(range(0,virial_tensor.shape[0],int(virial_tensor.shape[0]/num_cores)))
+    # split_frms.append(virial_tensor.shape[0])
+    
+    def calc_pres_tensor(k):
         pres = np.zeros((3,3))
                     
         VR = 4184.0*virial_tensor[k]
-        
+        V = velocities[k]
+
         for kk in range(3):
             mvv = m_atms*V[:,kk]*V[:,kk]
             mvv1 = mvv.sum()
@@ -153,25 +143,30 @@ def main():
             mvv1 = mvv.sum()
             pres[0,kk]+= (10*mvv1 - VR[0,kk])
             pres[kk,0]+= (10*mvv1 - VR[0,kk])
-            
+                
         #[1,2]
         mvv = m_atms*V[:,1]*V[:,2]
         mvv1 = mvv.sum()
-        pres[1,2]+= (10*mvv1 - VR[1,2])
-        pres[2,1]+= (10*mvv1 - VR[1,2])
+        pres[1,2] += (10*mvv1 - VR[1,2])
+        pres[2,1] += (10*mvv1 - VR[1,2])
 
-        pres *= ((1e30)/(NA*vol))
+        pres /= div
         pressure_tensor[k] = np.array(pres)
 
-        #pressure_tensor = np.array(pressure_tensor) # (J/m3)
         if k % 100 == 0:
-            print("Finished %d..." % k)
+            print(f"Finished {k:6d}...")
             sys.stdout.flush()
-    print("Finished calculation. Saving data...\n")
-    sys.stdout.flush()
 
-    np.save("velocity.npy",velocity_data)  
-    np.save("pressure.npy",pressure_tensor)
+    for k in range(nfrms):
+        calc_pres_tensor(k)
+
+    del velocities
+    gc.collect()
+
+    np.save(f"{path}/{basenm}-pressure.npy",pressure_tensor)
+
+    # del velocities
+    # gc.collect()
 
 if __name__ == "__main__":
     main()

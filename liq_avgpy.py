@@ -72,14 +72,16 @@ def main():
     np.set_printoptions(threshold=1000,precision=4,linewidth=100)
 
     
-    if gaslog:
+    try:
         liquid.all_properties(gaslog,analyzelog)
+    except:
+        None
 
-    if os.path.isfile("./diffusion.log"):
-        liquid.get_diffusion("diffusion.log")
-        diff = liquid.median_diffusion
-    else:
-        diff = 0.0
+    diff = 0.0
+    # if os.path.isfile("./diffusion.log"):
+    #     liquid.get_diffusion("diffusion.log")
+    #     diff = liquid.median_diffusion
+
 
     dens = liquid.avgRho
     PEmol = liquid.PEmol
@@ -98,9 +100,9 @@ def main():
     if analyzelog:
         print("Dielectric  : %5.2f " % (liquid.dielectric))
 
-    liquid.get_coordinates('%s/liquid.arc' % sim_path)
-    liquid.compute_avg_angle()
-    print("Avg. Angle  : %5.2f deg" % (liquid.avg_angle))
+    # liquid.get_coordinates('%s/liquid.arc' % sim_path)
+    # liquid.compute_avg_angle()
+    # print("Avg. Angle  : %5.2f deg" % (liquid.avg_angle))
 
     sys.stdout.flush()
 

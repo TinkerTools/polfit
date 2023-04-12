@@ -64,6 +64,7 @@ def main():
         sys.stdout.flush()
         for ind in pe_ind:
             tt =[]
+            
             tv0 = pe_data[ind].strip('\n').split()[-3:]
             tt.append([float(a) for a in tv0])
             tv0 = pe_data[ind+1].strip('\n').split()[-3:]
@@ -86,7 +87,7 @@ def main():
     
     velocity_file = xyzfile[:-4]+'.vel'
     if os.path.isfile(velocity_file):
-        masses = {'H':1.0078250321,'O':15.9949146221}
+        masses = {'H':1.0078250321,'C': 12.0107,'O':15.9949146221}
         
         print("Start reading velocity file...\n")
         sys.stdout.flush()
@@ -123,7 +124,7 @@ def main():
 
     num_cores = multiprocessing.cpu_count()
 
-    
+    # num_cores = 1
     #f = open(velocity_file,'r')
     #vel_data = f.readlines()
     #f.close()
