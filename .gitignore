@@ -1,0 +1,64 @@
+## Tinker9 Project
+
+# bin
+bin/*
+bin*/*
+
+# build
+build
+build/*
+build*/*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Docker
+docker/Dockerfile*
+docker/*.dockerfile
+
+# Example
+example/*.arc
+example/*.dyn
+
+# Manual
+doc/manual/_build/*
+
+# Wiki
+*.wiki
+*.wiki/*
+
+
+## OS
+
+# macOS
+.DS_Store
+._.DS_Store
+
+
+## Text Editors and IDEs
+
+# CLion
+.idea
+.idea/*
+
+# gdb
+*.out
+
+# Nsight
+Debug/*
+Release/*
+.cproject
+.project
+.settings/*
+
+# Qt Creator
+CMakeLists.txt.user
+
+# VSCode
+.vscode
+.vscode/*
+
+# vi
+*.swp
