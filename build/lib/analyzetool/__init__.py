@@ -1,2 +1,2 @@
-from . import gas, liquid, process
+from . import gas, liquid, process, prmedit
 import numpy as np
