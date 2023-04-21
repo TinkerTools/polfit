@@ -32,8 +32,8 @@ polarization            MUTUAL
 d-equals-p
 rep-12-scale            0.0
 rep-13-scale            0.0
-rep-14-scale            1.0
-rep-15-scale            1.0
+rep-14-scale            0.4
+rep-15-scale            0.8
 disp-12-scale           0.0
 disp-13-scale           0.0
 disp-14-scale           0.4
@@ -426,6 +426,7 @@ def prm_from_key(keys,prmd={}):
     prmfile = np.array(prmfile)
     prmfile = prmfile[prmfile != '\n']
     prmfile = [a for a in prmfile if '#' != a.split()[0]]
+    prmfile = [a for a in prmfile if '##' not in a]
     prmfile = np.array(prmfile)
     indp_ = []
 
@@ -435,11 +436,13 @@ def prm_from_key(keys,prmd={}):
         term = s[0]
         if term in indpterms:
             indp_.append([term,s])
+            if term not in uniq:
+                uniq.append(term)
         if term == 'multipole':
             indp_.append([term,k])
 
-        if term not in uniq:
-            uniq.append(term)
+            if term not in uniq:
+                uniq.append(term)
     
     if len(indp_) == 0:
         return
@@ -1210,3 +1213,86 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
                 outfile.write("".join(newfiles[k]))  
     else:
         return newfiles
+    
+def rawxyz_txyz(xyzfn,fnout="",tinkerpath="~/tinker",xyztitle='XYZ coords'):
+    bsdir = os.getcwd()
+    test = xyzfn.split('\n')
+    bname = ""
+    if len(test) > 2:
+        infile = xyzfn.split('\n')
+    else:
+        try:
+            f = open(xyzfn)
+            infile = f.readlines()
+            f.close()
+            bname = xyzfn[:-4]
+        except:
+            print("XYZ file does not exist!")
+            return
+    
+    if len(xyztitle) > 0:
+        title = xyztitle
+    else:
+        title = infile[1]
+    
+    natm = int(infile[0].split()[0])
+    
+    newxyz = [f" {natm} {title} \n"]
+    c = 0
+    for k,line in enumerate(infile[1:]):
+        try:
+            s = line.split()
+            s[1] = float(s[1]) ## x
+            s[2] = float(s[2]) ## y
+            s[3] = float(s[3]) ## z
+            c += 1
+        except:
+            continue
+        
+        atmid = c
+        newline = f"{atmid:6d}  {s[0]:<2s} {s[1]:12.6f} {s[2]:12.6f} {s[3]:12.6f} \n"
+        
+        newxyz.append(newline)
+    
+    input_ ="""
+9
+8
+
+
+"""
+    if len(fnout) > 0:
+        tt = fnout.split('/')
+        if len(tt) > 2:
+            fnout1 = tt[-1]
+            destdir = "/".join(tt[:-1])
+        else:
+            fnout1 = fnout
+            destdir = ""
+    
+    else:
+        fnout1 = "test_tinkerfn.xyz"
+
+    with open(f"{bsdir}/{fnout1}",'w') as outfile:
+        outfile.write("".join(newxyz))
+
+    with open(f"{bsdir}/input_tinker_conv10",'w') as outfile:
+        outfile.write(input_)
+
+    os.system(f"{tinkerpath}/bin/xyzedit {fnout1} < input_tinker_conv10")
+
+    f = open(f"{fnout1}_2")
+    xyzfinal = f.readlines()
+    f.close()
+
+    os.system(f"rm {fnout1}* input_tinker_conv10")
+
+    if len(fnout) > 0:
+        with open(fnout,'w') as outfile:
+            outfile.write("".join(xyzfinal))  
+        
+        keyfn = f"{destdir}/{fnout1[:-4]}.key"
+        keyin = f"""parameters  {tinkerpath}/basic.prm \n"""
+        with open(keyfn,'w') as outfile:
+            outfile.write(keyin)
+    else:
+        return xyzfinal
