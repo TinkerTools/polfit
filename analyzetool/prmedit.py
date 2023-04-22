@@ -1214,6 +1214,34 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
     else:
         return newfiles
     
+def get_coords_from_xyz(f1):
+    f = open(f1)
+    thefile = f.readlines()
+    f.close()
+    
+    test = thefile[2].split()[0]
+    if test.isdigit():
+        st = 1
+        ni = 1
+    else:
+        st = 2
+        ni = 0
+
+    coords = []
+    atommap = []
+    for line in thefile[st:]:
+        s = line.split()
+        if len(s) == 0 or len(s) < 3:
+            continue
+        s[ni+1] = float(s[ni+1])
+        s[ni+2] = float(s[ni+2])
+        s[ni+3] = float(s[ni+3])
+        s[ni] = ''.join([i for i in s[ni] if not i.isdigit()])
+        atommap.append(s[ni])
+        coords.append(s[ni+1:ni+4])
+
+    return np.array(coords),np.array(atommap)
+    
 def rawxyz_txyz(xyzfn,fnout="",tinkerpath="~/tinker",xyztitle='XYZ coords'):
     bsdir = os.getcwd()
     test = xyzfn.split('\n')
