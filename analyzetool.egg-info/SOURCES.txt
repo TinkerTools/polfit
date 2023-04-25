@@ -1,10 +1,12 @@
 setup.py
 analyzetool/__init__.py
+analyzetool/auxfitting.py
 analyzetool/auxtinker.py
 analyzetool/gas.py
 analyzetool/liquid.py
 analyzetool/prmedit.py
 analyzetool/process.py
+analyzetool/xyz2mol.py
 analyzetool/xyztopsi4.py
 analyzetool.egg-info/PKG-INFO
 analyzetool.egg-info/SOURCES.txt

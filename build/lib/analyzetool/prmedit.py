@@ -396,7 +396,7 @@ def process_prm(prmfn):
 
     return prmdict
 
-def prm_from_key(keys,prmd={}):
+def prm_from_key(keys,prmd={},exclude_prm=[]):
     indpterms = ["bond",'angle','strbnd','opbend','torsion',
                  'bndcflux','angcflux',"polarize","chgpen"]
 
@@ -507,29 +507,47 @@ def prm_from_key(keys,prmd={}):
                     vals += [float(a) for a in s3]
             multipole[0].append(typs)
             multipole[1].append(vals)
-
-        if term == 'chgpen':
-            val = [float(a) for a in s[1:]]
-            chgpen.append(vals)
         
         if term == 'polarize':
             i = int(s[1])
             v1 = float(s[2])
+            v2 = float(s[3])
+            if v2 < 1 or not v2.is_integer():
+                nst = 4
+            else:
+                nst = 3 
             polarize[0].append(i)
             polarize[1].append(v1)
-            polarize[2].append(s[3:]) 
+            polarize[2].append(s[nst:]) 
     
     prmout = {}
     for term in uniq:
         prmout[term] = locals()[term]
 
     if len(prmd) > 0:
+        orig_typ = prmd['types']
         for term,ref in prmd.items():
+            if term in exclude_prm:
+                continue
             nref = len(ref)
             if term not in prmout.keys():
                 continue
-            if term == 'polarize' or term == 'chgpen':
-                None
+            if term == 'polarize':
+                for nit,nnt in enumerate(polarize[0]):
+                    if nnt in orig_typ:
+                        for it,nt in enumerate(orig_typ):
+                            if nnt == nt:
+                                prmd[term][0][it] = polarize[1][nit]
+                                oldcon = prmd[term][1][it]
+                                newcon = polarize[2][nit]
+                                if oldcon != newcon:
+                                    print(f"Connectivity for {nt} differs!")
+                                    print(f"Input con. {oldcon}")
+                                    print(f"From new prms con. {newcon}")
+                                prmd[term][1][it] = newcon
+                                break
+                    else:
+                        print(f"{nnt} not in original list of types, skipping")
             else:
                 for k,val in enumerate(prmout[term][0]):
                     found = False
@@ -618,6 +636,21 @@ def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas'):
                     c = "  ".join(prmdict[term][0][k])
                     v2 = prmdict[term][2][k]
                     prmfile += f"{term:12s}  {c:<15s}{v:10.6f} {v2:12.6f}\n"
+                prmfile+='\n'
+            if term == 'strbnd':
+                for k,v in enumerate(prmdict[term][1]):
+                    if isinstance(prmdict[term][0][k],str):
+                        prmdict[term][0][k] = prmdict[term][0][k].split()
+                    c = "  ".join(prmdict[term][0][k])
+                    v2 = prmdict[term][2][k]
+                    prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.6f}\n"
+                prmfile+='\n'
+            if term == 'opbend':
+                for k,v in enumerate(prmdict[term][1]):
+                    if isinstance(prmdict[term][0][k],str):
+                        prmdict[term][0][k] = prmdict[term][0][k].split()
+                    c = "  ".join(prmdict[term][0][k])
+                    prmfile += f"{term:12s}{c:<25s} {v:12.6f}\n"
                 prmfile+='\n'
             if term == 'bndcflux':
                 for k,v in enumerate(prmdict[term][1]):
@@ -1025,21 +1058,23 @@ def combine_params(dictlist,molnames,fnout=None):
     return newdict
 
 def update_xyztypes(xyzfn,fnout="",newcoords=[],maptypes=None):
-
-    test = xyzfn.split('\n')
-    if len(test) > 2:
-        infile = xyzfn
+    if isinstance(xyzfn,list):
+        thefile = xyzfn
     else:
-        try:
-            f = open(xyzfn)
-            infile = f.readlines()
-            f.close()
-        except:
-            print("XYZ file does not exist!")
-            return
+        test = xyzfn.split('\n')
+        if len(test) > 2:
+            thefile = test
+        else:
+            if os.path.isfile(xyzfn):
+                f = open(xyzfn)
+                thefile = f.readlines()
+                f.close()
+            else:
+                print("XYZ file does not exist!")
+                return
 
-    newxyz = "".join(infile[:1])
-    for line in infile[1:]:
+    newxyz = "".join(thefile[:1])
+    for line in thefile[1:]:
         try:
             s = line.split()
             s[2] = float(s[2]) ## x
@@ -1081,17 +1116,20 @@ def combine_xyz(xyzfiles,fnout="",newcoords=[],maptypes=None,xyztitle='molecule'
     newxyz = [""]
     total = 0
     for xyzfn in xyzfiles:
-        test = xyzfn.split('\n')
-        if len(test) > 2:
+        if isinstance(xyzfn,list):
             infile = xyzfn
         else:
-            try:
-                f = open(xyzfn)
-                infile = f.readlines()
-                f.close()
-            except:
-                print("XYZ file does not exist!")
-                return
+            test = xyzfn.split('\n')
+            if len(test) > 2:
+                infile = xyzfn.split('\n')
+            else:
+                if os.path.isfile(xyzfn):
+                    f = open(xyzfn)
+                    infile = f.readlines()
+                    f.close()
+                else:
+                    print("XYZ file does not exist!")
+                    return
 
         for line in infile[1:]:
             try:
@@ -1214,11 +1252,22 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
     else:
         return newfiles
     
-def get_coords_from_xyz(f1):
-    f = open(f1)
-    thefile = f.readlines()
-    f.close()
-    
+def read_xyz_file(xyzfn):
+    if isinstance(xyzfn,list):
+        thefile = xyzfn
+    else:
+        test = xyzfn.split('\n')
+        if len(test) > 2:
+            thefile = xyzfn.split('\n')
+        else:
+            if os.path.isfile(xyzfn):
+                f = open(xyzfn)
+                thefile = f.readlines()
+                f.close()
+            else:
+                print("XYZ file does not exist!")
+                return
+
     test = thefile[2].split()[0]
     if test.isdigit():
         st = 1
@@ -1229,6 +1278,7 @@ def get_coords_from_xyz(f1):
 
     coords = []
     atommap = []
+    tinkertypes = []
     for line in thefile[st:]:
         s = line.split()
         if len(s) == 0 or len(s) < 3:
@@ -1240,9 +1290,73 @@ def get_coords_from_xyz(f1):
         atommap.append(s[ni])
         coords.append(s[ni+1:ni+4])
 
-    return np.array(coords),np.array(atommap)
+        if len(s) > 5:
+            typ = s[ni+4] = int(s[ni+4])
+            tinkertypes.append(typ)
     
-def rawxyz_txyz(xyzfn,fnout="",tinkerpath="~/tinker",xyztitle='XYZ coords'):
+    coords = np.array(coords)
+    natm = coords.shape[0]
+    if len(tinkertypes) > 0:
+        info = list(zip(tinkertypes,atommap))
+
+        return coords,info
+    else:
+        return coords,np.array(atommap)
+
+def rawxyz_txyz(xyzfn,typemap,connect,fnout="",xyztitle='XYZ coords'):
+    test = xyzfn.split('\n')
+    if len(test) > 2:
+        infile = xyzfn.split('\n')
+    else:
+        try:
+            f = open(xyzfn)
+            infile = f.readlines()
+            f.close()
+        except:
+            print("XYZ file does not exist!")
+            return
+    
+    if len(xyztitle) > 0:
+        title = xyztitle
+    else:
+        title = infile[1].strip('\n')
+    
+    natm = int(infile[0].split()[0])
+    
+    newxyz = [f" {natm} {title} \n"]
+    c = 0
+    for k,line in enumerate(infile[2:]):
+        s = line.split()
+        if len(s) < 4:
+            continue
+
+        s[1] = float(s[1]) ## x
+        s[2] = float(s[2]) ## y
+        s[3] = float(s[3]) ## z
+        typ = typemap[c][0]
+        el = typemap[c][1]
+        con = connect[c]
+        
+        atmid = c+1
+
+        con = [int(a) for a in con]                
+        newline = f"{atmid:6d}  {el:<2s} {s[1]:12.6f} {s[2]:12.6f} {s[3]:12.6f} {typ:5d}"
+        for a in con:
+            newline += f" {a+1:5d}"
+            
+        newline += '\n'
+        newxyz.append(newline)
+        c+=1
+    
+    newline += '\n'
+    if len(fnout) > 0:
+        with open(fnout,'w') as outfile:
+            outfile.write("".join(newxyz))  
+        return
+    else:
+        return newxyz
+
+def rawxyz_txyz_notypes(xyzfn,fnout="",tinkerpath="~/tinker",xyztitle='XYZ coords'):
     bsdir = os.getcwd()
     test = xyzfn.split('\n')
     bname = ""
