@@ -99,9 +99,10 @@ energy_terms = np.array(['Stretching', 'Bending', 'Stretch-Bend', 'Bend', 'Angle
        'Transfer'], dtype='<U12')
 
 #######################
-datadir = "/home/roseane/Dropbox/WashU/Projects/HIPPO/small_molecules/QM_databases/ref_data"
-tinkerpath = '/home/roseane/tinker'
-tinker9 = '/home/roseane/Applications/tinker9/build'
+smallmoldir = "/user/roseane/Dropbox/WashU/Projects/HIPPO/small_molecules"
+datadir = f"{smallmoldir}/org_molecules/reference-data"
+tinkerpath = '/user/roseane/tinker'
+tinker9 = '/user/roseane/Applications/tinker9/build'
 #######################
 
 ## Process start parameter files, save dictionary with starting parameters
@@ -144,7 +145,7 @@ class Auxfit(object):
         self.fitliq = False
         self.usedatafile = False
 
-        self.gasdcd = f"{datadir}/init_simulations-2/{molnumber}/gas.arc"
+        self.gasdcd = f"{smallmoldir}/init_simulations-2/{molnumber}/gas.arc"
         if not os.path.isfile(self.gasdcd):
             self.gasdcd = ""
         # self.Nmol = count_atoms(f"")
@@ -167,8 +168,8 @@ class Auxfit(object):
         prmfn = f"{datadir}/prmfiles/{n}.prm"
         waterprm = f"{datadir}/prmfiles/water-prms.prm"
         xyzpath = f"{datadir}/boxes/{n}"
-        qmpath = f"{datadir}/qm_calc/{n}"
-        elecpot = f"{datadir}/elec_pot/{n}"
+        qmpath = f"{datadir}/qm-calc/{n}"
+        elecpot = f"{datadir}/elec-pot/{n}"
         molpol = f"{datadir}/mol-polarize/{n}"
 
         os.system(f"cp {prmfn} {potdir}")
@@ -176,8 +177,8 @@ class Auxfit(object):
         os.system(f"cp {prmfn} {liqdir}")
         os.system(f"cp {prmfn} {poldir}")
 
-        if os.path.isdir(f"{datadir}/init_simulations-2/{n}"):
-            os.system(f"ln -s {datadir}/init_simulations-2/{n} {refliqdir}")
+        if os.path.isdir(f"{smallmoldir}/init_simulations-2/{n}"):
+            os.system(f"ln -s {smallmoldir}/init_simulations-2/{n} {refliqdir}")
 
         os.system(f"cp {xyzpath}/monomer.xyz {potdir}")
         os.system(f"cp {xyzpath}/monomer.key {potdir}")
@@ -204,8 +205,8 @@ class Auxfit(object):
         self.refmolpol = np.load(f"{molpol}/{n}-poleigen.npy")
         self.refmolpol *= elec_pol_A3
 
-        if os.path.isfile(f"{datadir}/ref_data/org_liq_list.pickle"):
-            self.molinfo = load_pickle(f"{datadir}/ref_data/org_liq_list.pickle")
+        if os.path.isfile(f"{datadir}/database-info/org_liq_list.pickle") and n < 164:
+            self.molinfo = load_pickle(f"{datadir}/database-info/org_liq_list.pickle")
             self.liquid_fitproperties()
         else:
             self.molinfo = {}
@@ -760,7 +761,7 @@ polar-eps         1e-06
     ## prepare dimer files
     def prepare_opt_sapt_dimers(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm_calc/{n}"
+        qmpath = f"{datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
 
         os.chdir(dimerdir)
@@ -820,7 +821,7 @@ polar-eps         1e-06
 
     def prepare_cluster(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm_calc/{n}"
+        qmpath = f"{datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
         os.chdir(dimerdir)
 
@@ -843,7 +844,7 @@ polar-eps         1e-06
 
     def prepare_sapt_dimers(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm_calc/{n}"
+        qmpath = f"{datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
         os.chdir(dimerdir)
 
@@ -868,7 +869,7 @@ polar-eps         1e-06
 
     def prepare_ccsdt_dimers(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm_calc/{n}"
+        qmpath = f"{datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
         os.chdir(dimerdir)
 
@@ -1084,7 +1085,7 @@ polar-eps         1e-06
         n = self.molnumber
         nm_dimers = self.nm_dimers
         dimerdir = f"{self.basedir}/{n}/dimer"
-        qmpath = f"{datadir}/qm_calc/{n}"
+        qmpath = f"{datadir}/qm-calc/{n}"
         
         os.chdir(dimerdir)
         os.system("rm -f *.err*")
