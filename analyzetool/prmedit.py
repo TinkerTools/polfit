@@ -414,7 +414,6 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
     if isinstance(keys,str):
         keyfn = [keys]
     elif isinstance(keys,list):
-        print("is list")
         keyfn = keys
 
     prmfile = []
@@ -486,11 +485,16 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
         if term == 'bndcflux':
             typs = s[1:3]
             val = float(s[3])
+            if np.isnan(val):
+                val = 0.0
             bndcflux[0].append(typs)
             bndcflux[1].append(val)
         if term == 'angcflux':
             typs = s[1:4]
             val = [float(a) for a in s[4:]]
+            for ii,a in enumerate(val):
+                if np.isnan(a):
+                    val[ii] = 0.0
             angcflux[0].append(typs)
             angcflux[1].append(val)
         if term == 'multipole':
