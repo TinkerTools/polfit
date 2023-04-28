@@ -1,2 +1,11 @@
-from . import gas, liquid, process, prmedit, auxtinker, auxfitting, xyz2mol
 import numpy as np
+import importlib
+
+rdkit_loader = importlib.find_loader('rdkit')
+found = rdkit_loader is not None
+
+if found:
+    from . import gas, liquid, process, prmedit, auxtinker, auxfitting, xyz2mol
+else:
+    from . import gas, liquid, process, prmedit, auxtinker, auxfitting
+
