@@ -227,6 +227,7 @@ def process_prm(prmfn):
     mlines = []
     if len(minds) != 0:
         mlines = prmfile[minds[0]:minds[-1]+5] 
+        mlines = [a for a in mlines if len(a) > 5 and a.split()[0] != '#']
     
     # atom types
     atoms = []
@@ -269,36 +270,46 @@ def process_prm(prmfn):
     chgtrn = np.zeros((nclas,2))
     polarize = [[0]*natms,[0]*natms]
     for k in range(nclas):
-        tl = int(cpen[k].split()[1])
-        i = clspos[tl]
-        v1 = float(cpen[k].split()[2])
-        v2 = float(cpen[k].split()[3])
-        chgpen[i] = [v1,v2]
+        if len(cpen) > 0:
+            tl = int(cpen[k].split()[1])
+            i = clspos[tl]
+            v1 = float(cpen[k].split()[2])
+            v2 = float(cpen[k].split()[3])
+            chgpen[i] = [v1,v2]
         ##
-        tl = int(disp[k].split()[1])
-        i = clspos[tl]
-        v1 = float(disp[k].split()[2])
-        dispersion[i] = v1
+        if len(disp) > 0:
+            tl = int(disp[k].split()[1])
+            i = clspos[tl]
+            v1 = float(disp[k].split()[2])
+            dispersion[i] = v1
         ##
-        tl = int(rep[k].split()[1])
-        i = clspos[tl]
-        v1 = float(rep[k].split()[2])
-        v2 = float(rep[k].split()[3])
-        v3 = float(rep[k].split()[4])
-        repulsion[i] = [v1,v2,v3]
+        if len(rep) > 0:
+            tl = int(rep[k].split()[1])
+            i = clspos[tl]
+            v1 = float(rep[k].split()[2])
+            v2 = float(rep[k].split()[3])
+            v3 = float(rep[k].split()[4])
+            repulsion[i] = [v1,v2,v3]
         ##
-        tl = int(ctrn[k].split()[1])
-        i = clspos[tl]
-        v1 = float(ctrn[k].split()[2])
-        v2 = float(ctrn[k].split()[3])
-        chgtrn[i] = [v1,v2]
+        if len(ctrn) > 0:
+            tl = int(ctrn[k].split()[1])
+            i = clspos[tl]
+            v1 = float(ctrn[k].split()[2])
+            v2 = float(ctrn[k].split()[3])
+            chgtrn[i] = [v1,v2]
     
     for k in range(natms):
         s = pol[k].split()
         i = atmpos[int(s[1])]
         v1 = float(s[2])
         polarize[0][i] = v1
-        polarize[1][i] = s[3:]        
+
+        ## test for amoeba 0.39 in polarize
+        itest = float(s[3])
+        if itest.is_integer():
+            polarize[1][i] = s[3:] 
+        else:
+            polarize[1][i] = s[4:]
         ##
 
     if len(mlines) > 0:    
