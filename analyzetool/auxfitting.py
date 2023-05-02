@@ -1879,7 +1879,7 @@ polar-eps         1e-06
         
         ### Minimize liquid box
         minbox = False
-        if totalerror.mean() < 2 and optimizer == 'genetic':
+        if totalerror.mean() < 1e4 and optimizer == 'genetic':
             minbox = True
         elif optimizer != 'genetic':
             minbox = True
