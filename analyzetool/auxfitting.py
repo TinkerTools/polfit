@@ -1036,32 +1036,50 @@ polar-eps         1e-06
             all_out = all_out[12:]
 
             frms = [p for p,a in enumerate(all_out) if 'Intermolecular Energy' in a]
+            nointer = False
             if len(frms) == 0:
                 frms = [p for p,a in enumerate(all_out) if 'Total Potential' in a]
-            
+                nointer = True
             nfrms = len(frms)
-            if nfrms == 0:
-                res = np.zeros(len(fnames))+1e6
-                if intermolecular:
-                    return res, res
-                else:
-                    return res
             nstart = frms[0]
 
             split = [a.split() for a in all_out[nstart:] if 'Analysis' not in a and 'Breakdown' not in a]
-            values = np.array([[a[-3],a[-2]] for a in split if ':' not in a])
 
-            if intermolecular:
-                intermol = np.array([float(a[-2]) for a in split if 'Intermolecular' in a])
-                total = np.array([float(a.split()[-2]) for a in all_out[frms]])
-                allinter.append(intermol)
+            if nointer:
+                frms = [p for p,a in enumerate(split) if 'Total' == a[0]]
+            else:
+                frms = [p for p,a in enumerate(split) if 'Intermolecular' == a[0]]
+            
+            energies = {a[-3]:np.zeros(nfrms,dtype=float) for a in split if ':' not in a}
+            if nointer:
+                energies['Total'] = np.zeros(nfrms,dtype=float)
+            else:
+                energies['Total'] = np.zeros(nfrms,dtype=float)
+                energies['Intermolecular'] = np.zeros(nfrms,dtype=float)
+            
+            frms2 = frms + [len(split)]
+            for ii,kk in enumerate(frms2[:-1]):
+                k1 = kk 
+                k2 = frms2[ii+1]
+                
+                if nointer:
+                    s = split[k1]
+                    energies['Total'][ii] += float(s[-2])
+                    st = 1
+                else:
+                    s = split[k1]
+                    energies['Intermolecular'][ii] += float(s[-2])
+                    s = split[k1+1]
+                    energies['Total'][ii] += float(s[-2])
+                    st = 2
+                
+                for s in split[k1+st:k2]:
+                    energies[s[-3]][ii] += float(s[-2])
             
             eng_cpm = np.zeros((nfrms,len(energy_terms)),dtype=float)
             for nt,term in enumerate(energy_terms):
-                ids = np.where(term==values[:,0])[0]
-                if ids.shape[0] > 0:
-                    vals = np.asarray(values[:,1][ids],dtype=float)
-                    eng_cpm[:,nt] = vals.copy()
+                if term in energies.keys():
+                    eng_cpm[:,nt] = energies[term].copy()
 
             if nfrms == 1:        
                 final_energy = eng_cpm[0]
@@ -1069,6 +1087,7 @@ polar-eps         1e-06
                 final_energy = eng_cpm
             
             all_componts.append(final_energy)
+            allinter.append(energies['Intermolecular'])
         os.chdir(self.basedir)
         if intermolecular:
             if single:
