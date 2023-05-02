@@ -188,7 +188,9 @@ digits            10
 printout          5000
 
 polarization      mutual               
-polar-eps         1e-06                     
+polar-eps         1e-06       
+
+fix-chgpen
 #########################
 """      
 
@@ -305,16 +307,19 @@ def process_prm(prmfn):
         polarize[0][i] = v1
 
         ## test for amoeba 0.39 in polarize
-        itest = float(s[3])
-        if itest.is_integer():
-            polarize[1][i] = s[3:] 
-        else:
-            polarize[1][i] = s[4:]
-        ##
+        if len(s) > 3:
+            itest = float(s[3])
+            if itest.is_integer():
+                con = [int(a) for a in s[3:]]
+            else:
+                con = [int(a) for a in s[4:]]
+            polarize[1][i] = con
+            ##
 
     if len(mlines) > 0:    
         for i,line in enumerate(mlines[::5]):
             typs = line.split()[1:-1]
+            typs = [int(a) for a in typs]
             vals = [float(line.split()[-1])]
             
             for z,k in enumerate(mlines[i*5+1:i*5+5]):
@@ -512,6 +517,7 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
             s2 = prmfile[s].split('#')
             s1 = s2[0]
             typs = s1.split()[1:-1]
+            typs = [int(a) for a in typs]
             vals = [float(s1.split()[-1])]
             
             for z,l2 in enumerate(prmfile[s+1:s+5]):
@@ -526,15 +532,25 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
         if term == 'polarize':
             i = int(s[1])
             v1 = float(s[2])
-            v2 = float(s[3])
-            if v2 < 1 or not v2.is_integer():
-                nst = 4
-            else:
-                nst = 3 
             polarize[0].append(i)
             polarize[1].append(v1)
-            polarize[2].append(s[nst:]) 
+
+            if len(s) > 3:
+                v2 = float(s[3])
+                if v2 < 1 or not v2.is_integer():
+                    nst = 4
+                else:
+                    nst = 3 
+                
+                con = [int(a) for a in s[nst:]]
+                polarize[2].append(con) 
+            else:
+                polarize[2].append(0)
+
+        if term == 'chgpen':
+            chgpen.append([float(a) for a in s[1:]])
     
+    chgpen = np.array(chgpen)
     prmout = {}
     for term in uniq:
         prmout[term] = locals()[term]
@@ -563,6 +579,22 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
                                 break
                     else:
                         print(f"{nnt} not in original list of types, skipping")
+            elif term == 'chgpen':
+                tt = np.array(prmd['types'])
+                for k in range(chgpen.shape[0]):
+                    typ = chgpen[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['chgpen'][ii[0]] = chgpen[k][1:]
+            elif term == 'multipole':
+                for ii,typs in enumerate(multipole[0]):
+                    for kk,rtyps in enumerate(prmd[term][0]):
+                        if typs == rtyps:
+                            prmd[term][1][kk] = multipole[1][ii].copy()
+                            break
             else:
                 for k,val in enumerate(prmout[term][0]):
                     found = False
@@ -582,16 +614,23 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
     else:
         return prmout
 
-def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas'):
+def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas',path=""):
     deftprm = "~/tinker/params/hippo19.prm"
+    currdir = os.getcwd()
+
+    if len(path) > 0:
+        currdir = path
 
     prmkey = prmfn
-    if not os.path.isfile(prmfn):
+    if not os.path.isfile(prmfn) and not os.path.isfile(f"{currdir}/{prmfn}"):
         prmkey = deftprm
     
-    if os.path.isfile(prmfn) and len(prmd) == 0:
-        prmdict = process_prm(prmfn)
-    if len(prmd) > 0:
+    if len(prmd) == 0:
+        if os.path.isfile(prmfn):
+            prmdict = process_prm(prmfn)
+        if os.path.isfile(f"{currdir}/{prmfn}"):
+            prmdict = process_prm(f"{currdir}/{prmfn}")
+    else:
         prmdict = prmd
     
     if opt == 'liquid':
@@ -775,8 +814,10 @@ def write_prm(prmdict,fnout):
         v = prmdict[term][0][k]
         v2 = prmdict[term][1][k]
         c = ""
-        for ts in v2:
-            c += f"  {int(ts):3d}"
+
+        if isinstance(v2,list):
+            for ts in v2:
+                c += f"  {int(ts):3d}"
         prmfile += f"{term:16s} {t:<11d}{v:10.6f}{c}\n"
 
     term = "chgpen"
@@ -964,13 +1005,12 @@ def update_types(newprms,maptypes,mapclas=None,fnout=None):
         atmline[0] = newcl
         atoms.append(atmline)
         #polarize
-        v1 = [int(a) for a in newprms['polarize'][1][oldk]]
-        vnew = [maptypes[a] for a in v1]
+        if isinstance(newprms['polarize'][1][oldk],list):
+            v1 = [int(a) for a in newprms['polarize'][1][oldk]]
+            vnew = [maptypes[a] for a in v1]
+            polarize[1][k] = vnew
 
         polarize[0][k] = newprms['polarize'][0][oldk]
-        polarize[1][k] = vnew
-
-        # print(k,oldk,atmline,newcl,typ)
     
     updprms['polarize'] = polarize
     updprms['atom'] = atoms
@@ -1291,10 +1331,12 @@ def read_xyz_file(xyzfn):
         st = 2
         ni = 0
 
+    natms = int(thefile[0].split()[0])
+
     coords = []
     atommap = []
     tinkertypes = []
-    for line in thefile[st:]:
+    for line in thefile[st:st+natms]:
         s = line.split()
         if len(s) == 0 or len(s) < 3:
             continue
@@ -1317,6 +1359,59 @@ def read_xyz_file(xyzfn):
         return coords,info
     else:
         return coords,np.array(atommap)
+    
+def number_of_frames(xyzfn):
+    if isinstance(xyzfn,list):
+        thefile = xyzfn
+        openfile = False
+    else:
+        test = xyzfn.split('\n')
+        if len(test) > 2:
+            thefile = xyzfn.split('\n')
+            openfile = False
+        else:
+            if os.path.isfile(xyzfn):
+                openfile = True
+            else:
+                print("XYZ file does not exist!")
+                return
+
+    if openfile:
+        thefile = []
+        lread = 0
+        f = open(xyzfn)
+        for a in range(3):
+            thefile += f.readline()
+            lread+=1
+        f.close()
+
+        thefile = "".join(thefile)
+        thefile = thefile.split('\n')
+    
+    test = thefile[2].split()[0]
+    if test.isdigit():
+        st = 1
+        ni = 1
+    else:
+        st = 2
+        ni = 0
+
+    natms = int(thefile[0].split()[0])
+    nlines = st+natms
+
+    if openfile:
+        lread = 0
+        with open(xyzfn) as thefile:
+            for line in thefile:
+                if line != '\n':
+                    lread += 1
+        
+        nframes = lread/nlines
+    else:
+        thefile = [a for a in thefile if a != '\n']
+        nframes = len(thefile)/nlines
+    
+    return nframes
 
 def rawxyz_txyz(xyzfn,typemap,connect,fnout="",xyztitle='XYZ coords'):
     test = xyzfn.split('\n')

@@ -1,6 +1,7 @@
 import os, sys
 import numpy as np
 import subprocess
+import signal
 
 global tinkerpath
 tinkerpath = "~/tinker"
@@ -158,3 +159,92 @@ def sapt_components(final):
         comps = np.array([final[:,9],final[:,7],final[:,10]+final[:,11], final[:,8],final.sum(axis=1)])
 
     return comps
+
+
+def minimize_box(path,filenm='liquid.xyz',rms=0.1,erase=True,keyfile="",tkpath=""):
+    currdir = os.getcwd()
+    os.chdir(path)
+
+    if len(tkpath) > 0:
+        set_tinkerpath(tkpath)
+    
+    if erase:
+        os.system(f"rm -rf *.xyz_* *.err* *.end")
+    else:
+        os.system(f"rm -rf *.err* *.end")
+    
+    if 'xyz' in filenm:
+        xyz_file = filenm
+    elif 'arc' not in filenm:
+        xyz_file = filenm+'.xyz'
+
+    if 'gas' in filenm:
+        cmd = f'{tinkerpath}/bin/minimize {xyz_file} {rms}'
+    else:
+        cmd = f'{tinkerpath}/bin/tinker9 minimize {xyz_file} {rms}' 
+
+    out_log = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding='utf8', preexec_fn=os.setsid)
+    rerun = False
+    try:
+        output = out_log.communicate(timeout=300)
+        all_out = output[0].split('\n')
+    except subprocess.TimeoutExpired:
+        job_pid1 = os.getpgid(out_log.pid)
+        os.killpg(os.getpgid(job_pid1), signal.SIGTERM)
+        out_log.kill()
+        output = out_log.communicate()
+        all_out = output[0].split('\n')
+        rerun = True
+
+    bb = all_out[-4:-1]
+
+    error = False
+    rms = 100
+    if "Final RMS" in bb[1]:
+        line1 = bb[0].strip('\n')
+        line1 = line1.replace('D','e')
+        line2 = bb[1].strip('\n')
+        line2 = line2.replace('D','e')
+
+        rms = float(line2.split()[-1])
+        min_energ = float(line1.split()[-1])
+
+    ### Check for incomplete convergence in single precision
+    if 'Incomplete Convergence' in all_out[-6] and rms > 0.2 and rms < 100:
+        if 'gas' not in filenm:
+            rerun = True
+    if rerun:
+        cmd = f'{tinkerpath}/bin/tinker9-double minimize {xyz_file} 0.1' 
+
+        out_log = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding='utf8', preexec_fn=os.setsid)
+        try:
+            output = out_log.communicate(timeout=300)
+        except subprocess.TimeoutExpired:
+            job_pid1 = os.getpgid(out_log.pid)
+            os.killpg(os.getpgid(job_pid1), signal.SIGTERM)
+            out_log.kill()
+            output = out_log.communicate()
+        
+        all_out = output[0].split('\n')
+        bb = all_out[-4:-1]
+        
+        if "Final RMS" in bb[1]:
+            line1 = bb[0].strip('\n')
+            line1 = line1.replace('D','e')
+            line2 = bb[1].strip('\n')
+            line2 = line2.replace('D','e')
+
+            rms = float(line2.split()[-1])
+            min_energ = float(line1.split()[-1])
+
+    if rms == 100 or np.isnan(rms) or np.isinf(rms):
+        min_energ = -1.1e6
+        rms = 1e4
+        error = True
+
+    elif rms > 10 or np.abs(min_energ) > 1.5e5:
+        error = True
+
+    os.chdir(currdir)
+
+    return error, min_energ, rms

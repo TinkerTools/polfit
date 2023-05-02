@@ -7,6 +7,7 @@ from time import gmtime, strftime
 import warnings
 warnings.filterwarnings('ignore') # make the notebook nicer
 import pickle
+from analyzetool import auxfitting
 
 def save_pickle(dict_,outfn=None):
     if outfn == None:
@@ -26,35 +27,32 @@ termfit = ['chgpen','dispersion','repulsion',
                 'polarize','bndcflux','angcflux',
                 'chgtrn','multipole']
 
+ref_data = "/work/roseane/HIPPO/small_molecules/org_molecules/reference-data"
 def main():
     n = int(sys.argv[1])
 
-    bspath = "/work/roseane/HIPPO/small_molecules/org_molecules/fitting"
+    bspath = "/work/roseane/HIPPO/small_molecules/org_molecules/fitting-2"
     path = os.getcwd()
-
-    if os.path.isfile(f"{path}/auxfunctions.py"):
-        sys.path.append(path)
-        import auxfunctions
-    elif os.path.isfile(f"{bspath}/auxfunctions.py"):
-        sys.path.append(bspath)
-        import auxfunctions
-    else:
-        return
 
     os.chdir(path)
 
-    molfit = auxfunctions.Auxfit(path,n)
+    molfit = auxfitting.Auxfit(path,n)
 
     molfit.prepare_directories()
-    # molfit.prepare_opt_sapt_dimers()
-    molfit.prepare_ccsdt_dimers()
-    # molfit.prepare_cluster()
-    # molfit.prepare_sapt_dimers()
+
+    if os.path.isfile(f"{ref_data}/qm-calc/{n}/sapt-res-water+mol.npy"):
+        molfit.prepare_opt_sapt_dimers()
+    if os.path.isdir(f"{ref_data}/qm-calc/{n}/ccsdt_dimers"):
+        molfit.prepare_ccsdt_dimers()
+    if os.path.isdir(f"{ref_data}/qm-calc/{n}/sapt_dimers"):
+        molfit.prepare_sapt_dimers()
+    if os.path.isdir(f"{ref_data}/qm-calc/{n}/clusters"):
+        molfit.prepare_cluster()
+    
     molfit.process_prm()
     molfit.build_prm_list()
     molfit.make_key()
     molfit.initpotrms = molfit.get_potfit()
-
     
     termfit = ['chgpen']
     molfit.build_prm_list(termfit)
