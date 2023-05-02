@@ -98,11 +98,12 @@ energy_terms = np.array(['Stretching', 'Bending', 'Stretch-Bend', 'Bend', 'Angle
        'Repulsion', 'Dispersion', 'Multipoles', 'Polarization',
        'Transfer'], dtype='<U12')
 
+
 #######################
-smallmoldir = "/user/roseane/Dropbox/WashU/Projects/HIPPO/small_molecules"
+HOME = os.path.expanduser('~')
+smallmoldir = "/work/roseane/HIPPO/small_molecules"
 datadir = f"{smallmoldir}/org_molecules/reference-data"
-tinkerpath = '/user/roseane/tinker'
-tinker9 = '/user/roseane/Applications/tinker9/build'
+tinkerpath = f'{HOME}/tinker'
 #######################
 
 ## Process start parameter files, save dictionary with starting parameters
@@ -145,11 +146,8 @@ class Auxfit(object):
         self.fitliq = False
         self.usedatafile = False
 
-        self.gasdcd = f"{smallmoldir}/init_simulations-2/{molnumber}/gas.arc"
-        if not os.path.isfile(self.gasdcd):
-            self.gasdcd = ""
-        # self.Nmol = count_atoms(f"")
-
+        self.datadir = datadir
+        self.smallmoldir = smallmoldir
     def prepare_directories(self):
         n = self.molnumber
         potdir = f"{self.basedir}/{n}/potential-test"
@@ -165,20 +163,25 @@ class Auxfit(object):
         os.system(f"mkdir -p {liqdir}")
         os.system(f"mkdir -p {dumpdir}")
 
-        prmfn = f"{datadir}/prmfiles/{n}.prm"
-        waterprm = f"{datadir}/prmfiles/water-prms.prm"
-        xyzpath = f"{datadir}/boxes/{n}"
-        qmpath = f"{datadir}/qm-calc/{n}"
-        elecpot = f"{datadir}/elec-pot/{n}"
-        molpol = f"{datadir}/mol-polarize/{n}"
+        prmfn = f"{self.datadir}/prmfiles/{n}.prm"
+        waterprm = f"{self.datadir}/prmfiles/water-prms.prm"
+        xyzpath = f"{self.datadir}/boxes/{n}"
+        qmpath = f"{self.datadir}/qm-calc/{n}"
+        elecpot = f"{self.datadir}/elec-pot/{n}"
+        molpol = f"{self.datadir}/mol-polarize/{n}"
 
         os.system(f"cp {prmfn} {potdir}")
         os.system(f"cp {prmfn} {dimerdir}")
         os.system(f"cp {prmfn} {liqdir}")
         os.system(f"cp {prmfn} {poldir}")
 
-        if os.path.isdir(f"{smallmoldir}/init_simulations-2/{n}"):
-            os.system(f"ln -s {smallmoldir}/init_simulations-2/{n} {refliqdir}")
+        if os.path.isdir(f"{self.smallmoldir}/init_simulations-2/{n}"):
+            os.system(f"ln -s {self.smallmoldir}/init_simulations-2/{n} {refliqdir}")
+
+            self.gasdcd = f"{self.smallmoldir}/init_simulations-2/{n}/gas.arc"
+            if not os.path.isfile(self.gasdcd):
+                self.gasdcd = ""
+            # self.Nmol = count_atoms(f"")
 
         os.system(f"cp {xyzpath}/monomer.xyz {potdir}")
         os.system(f"cp {xyzpath}/monomer.key {potdir}")
@@ -205,8 +208,8 @@ class Auxfit(object):
         self.refmolpol = np.load(f"{molpol}/{n}-poleigen.npy")
         self.refmolpol *= elec_pol_A3
 
-        if os.path.isfile(f"{datadir}/database-info/org_liq_list.pickle") and n < 164:
-            self.molinfo = load_pickle(f"{datadir}/database-info/org_liq_list.pickle")
+        if os.path.isfile(f"{self.datadir}/database-info/org_liq_list.pickle") and n < 164:
+            self.molinfo = load_pickle(f"{self.datadir}/database-info/org_liq_list.pickle")
             self.liquid_fitproperties()
         else:
             self.molinfo = {}
@@ -223,7 +226,7 @@ class Auxfit(object):
     def process_prm(self,prmfn=None):
         n = self.molnumber
         if prmfn == None:
-            prmfn = f"{datadir}/prmfiles/{n}.prm"
+            prmfn = f"{self.datadir}/prmfiles/{n}.prm"
         
         f = open(prmfn)
         prmfile = f.readlines()
@@ -761,7 +764,7 @@ polar-eps         1e-06
     ## prepare dimer files
     def prepare_opt_sapt_dimers(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm-calc/{n}"
+        qmpath = f"{self.datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
 
         os.chdir(dimerdir)
@@ -821,7 +824,7 @@ polar-eps         1e-06
 
     def prepare_cluster(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm-calc/{n}"
+        qmpath = f"{self.datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
         os.chdir(dimerdir)
 
@@ -844,7 +847,7 @@ polar-eps         1e-06
 
     def prepare_sapt_dimers(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm-calc/{n}"
+        qmpath = f"{self.datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
         os.chdir(dimerdir)
 
@@ -857,7 +860,8 @@ polar-eps         1e-06
         for f in files:
             if 'arc' == f[-3:]:
                 fnames.append(f[:-4])
-                os.system(f"cp {qmpath}/sapt_dimers/{f[:-4]}* .")
+                os.system(f"cp {qmpath}/sapt_dimers/{f} .")
+                os.system(f"cp {qmpath}/sapt_dimers/{f[:-4]}*.xyz .")
         
         self.sapt_dimers = fnames
         self.sapt_dimers_ref = {}
@@ -869,7 +873,7 @@ polar-eps         1e-06
 
     def prepare_ccsdt_dimers(self):
         n = self.molnumber
-        qmpath = f"{datadir}/qm-calc/{n}"
+        qmpath = f"{self.datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
         os.chdir(dimerdir)
 
@@ -882,7 +886,7 @@ polar-eps         1e-06
         for f in files:
             if 'arc' == f[-3:]:
                 fnames.append(f[:-4])
-                os.system(f"cp {qmpath}/ccsdt_dimers/{f[:-4]}* .")
+                os.system(f"cp {qmpath}/ccsdt_dimers/{f} .")
         
         self.ccsdt_dimers = fnames
         self.ccsdt_dimers_ref = {}
@@ -1104,7 +1108,7 @@ polar-eps         1e-06
         n = self.molnumber
         nm_dimers = self.nm_dimers
         dimerdir = f"{self.basedir}/{n}/dimer"
-        qmpath = f"{datadir}/qm-calc/{n}"
+        qmpath = f"{self.datadir}/qm-calc/{n}"
         
         os.chdir(dimerdir)
         os.system("rm -f *.err*")
@@ -1214,7 +1218,15 @@ polar-eps         1e-06
             all_componts.append(final_energy)
         
         os.chdir(self.basedir)
-        return np.array(all_componts),np.array(errors)
+
+        if len(nm_dimers) > 1:
+            allerr = errors[0]
+            for e in errors[1:]:
+                allerr = np.concatenate((allerr,e))
+
+            return all_componts,allerr
+        else:
+            return np.array(all_componts),np.array(errors)
 
     def compute_cluster(self):
         n = self.molnumber
@@ -1299,7 +1311,7 @@ polar-eps         1e-06
         except:
             info = [278,800.0]
             liqprop = ["Temp", "Dens"]
-            self.liquidref = [refvalues,liqprop]
+            self.liquidref = [info,liqprop]
             return
         nsteps = self.nsteps
         simlen = (nsteps*2/1000)
@@ -1828,20 +1840,20 @@ polar-eps         1e-06
         if self.do_sapt_dimers:
             calc_components, errors = self.compute_dimer_arc()        
             if 'chgpen' in termfit or 'multipole' in termfit:
-                err = np.abs(errors)[:,:,0].flatten().sum()
+                err = np.abs(errors)[:,0].flatten().sum()
                 errlist.append(err)
             if 'dispersion' in termfit:
-                err = np.abs(errors)[:,:,3].flatten().sum()
+                err = np.abs(errors)[:,3].flatten().sum()
                 errlist.append(err)
             if 'repulsion' in termfit:
-                err = np.abs(errors)[:,:,1].flatten().sum()
+                err = np.abs(errors)[:,1].flatten().sum()
                 errlist.append(err)
             if 'polarize' in termfit or 'chgtrn' in termfit:
-                err = np.abs(errors)[:,:,2].flatten().sum()
+                err = np.abs(errors)[:,2].flatten().sum()
                 errlist.append(err)
 
             if len(termfit) > 2:
-                err = np.abs(errors)[:,:,4].flatten().sum()
+                err = np.abs(errors)[:,4].flatten().sum()
                 errlist.append(err)
 
             allres['sapt_dimers'] = [calc_components, errors]

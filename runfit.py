@@ -27,7 +27,9 @@ termfit = ['chgpen','dispersion','repulsion',
                 'polarize','bndcflux','angcflux',
                 'chgtrn','multipole']
 
+#### UPDATE THESE PATH
 ref_data = "/work/roseane/HIPPO/small_molecules/org_molecules/reference-data"
+smallmoldir = "/work/roseane/HIPPO/small_molecules"
 def main():
     n = int(sys.argv[1])
 
@@ -38,6 +40,8 @@ def main():
 
     molfit = auxfitting.Auxfit(path,n)
 
+    molfit.datadir = ref_data
+    molfit.smallmoldir = smallmoldir
     molfit.prepare_directories()
 
     if os.path.isfile(f"{ref_data}/qm-calc/{n}/sapt-res-water+mol.npy"):
@@ -53,7 +57,7 @@ def main():
     molfit.build_prm_list()
     molfit.make_key()
     molfit.initpotrms = molfit.get_potfit()
-    
+
     termfit = ['chgpen']
     molfit.build_prm_list(termfit)
     res = molfit.fit_data('genetic')
