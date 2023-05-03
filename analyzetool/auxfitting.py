@@ -1947,7 +1947,7 @@ polar-eps         1e-06
             allres['error'] = totalerror
         
         self.log[i] = allres
-        save_pickle(self.log, self.dumpfile)       
+        save_pickle(self.log, f"{self.dumpfile}_temp")       
         
         #### For differential evolution
         if optimizer == 'genetic':
@@ -2024,7 +2024,17 @@ polar-eps         1e-06
         final_prms = opt.x
         self.optimize_prms(final_prms)
 
-        # save_pickle(self.log,self.progfile)
+        ### Save permanent dumpfile
+        if os.path.isfile(self.dumpfile):
+            alllog = load_pickle(self.dumpfile)
+
+            if os.path.isfile(f"{self.dumpfile}_temp"):
+                log = load_pickle(f"{self.dumpfile}_temp")
+
+                alllog = {**alllog, **log}
+
+                save_pickle(alllog, f"{self.dumpfile}") 
+                os.system(f"rm {self.dumpfile}_temp")
 
         os.chdir(self.basedir)
         return opt
