@@ -1972,21 +1972,18 @@ polar-eps         1e-06
             rms = 100
             totalerror = np.append(totalerror,(1e6))
 
-        if totalerror.sum() > 300:
-            proxyerr = totalerror[:8].sum()
-            if nvals == 1:
-                totalerror = np.append(totalerror,proxyerr/5)
-            elif nvals == 2:
-                totalerror = np.append(totalerror,[proxyerr/5,proxyerr/3])
+        if self.testliq and not self.fitliq:
+            if totalerror.sum() > 300:
+                proxyerr = totalerror[:8].sum()
+                if nvals == 1:
+                    totalerror = np.append(totalerror,proxyerr/5)
+                elif nvals == 2:
+                    totalerror = np.append(totalerror,[proxyerr/5,proxyerr/3])
+                else:
+                    np.append(totalerror,np.zeros(nvals)+proxyerr/5)
+                err = np.zeros(nvals)+1e6
+                res = np.zeros(nvals)-100
             else:
-                np.append(totalerror,np.zeros(nvals)+proxyerr/5)
-            err = np.zeros(nvals)+1e6
-            res = np.zeros(nvals)-100
-            allres['liqres'] = [res, err]
-            allres['error'] = totalerror
-
-        else:
-            if not self.fitliq:
                 if minbox and rms < 1 and boxerr < 10:
                     err,res = self.run_npt(5, 5000, 100000)
                     err = np.abs(err)
@@ -1994,20 +1991,23 @@ polar-eps         1e-06
                     err = np.zeros(nvals)+1e6
                     res = np.zeros(nvals)-100    
                 totalerror = np.append(totalerror,err*1e-3)
-            else:
-                if rms < 1 and boxerr < 10:
-                    gaserr = self.minimize_box('gas.xyz',False)
-                    err,res = self.run_npt()
-                    err = np.abs(err)
-                else:
-                    err = np.zeros(nvals)+1e6
-                    res = np.zeros(nvals)-100
 
-                totalerror = np.append(totalerror,10*err)
+            allres['liqres'] = [res, err]
+        
+        if self.fitliq:
+            if rms < 1 and boxerr < 10:
+                gaserr = self.minimize_box('gas.xyz',False)
+                err,res = self.run_npt()
+                err = np.abs(err)
+            else:
+                err = np.zeros(nvals)+1e6
+                res = np.zeros(nvals)-100
+
+            totalerror = np.append(totalerror,10*err)
             
             allres['liqres'] = [res, err]
-            allres['error'] = totalerror
         
+        allres['error'] = totalerror
         self.log[i] = allres
         save_pickle(self.log, f"{self.dumpfile}_temp")       
         
@@ -2019,7 +2019,7 @@ polar-eps         1e-06
 
         return errors
 
-    def fit_data(self,optimizer='genetic',fitliq=False):
+    def fit_data(self,optimizer='genetic',fitliq=False,testliq=False):
         os.chdir(self.basedir)
 
         n = self.molnumber
@@ -2028,6 +2028,7 @@ polar-eps         1e-06
         self.optimizer = optimizer
 
         self.fitliq = fitliq
+        self.testliq = testliq
         if fitliq:
             self.liquid_fitproperties()
         
