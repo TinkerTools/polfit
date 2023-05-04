@@ -865,8 +865,23 @@ polar-eps         1e-06
         
         self.sapt_dimers = fnames
         self.sapt_dimers_ref = {}
+        self.sapt_dimers_indx = {}
         for f in fnames:
-            self.sapt_dimers_ref[f] = np.load(f"{qmpath}/sapt_dimers/{f}.npy")
+            ref = np.load(f"{qmpath}/sapt_dimers/{f}.npy")
+            ndim = ref.shape[0]
+
+            ref1 = ref[:,-1]
+            cut = 2*np.std(ref1)
+            if cut > 20:
+                cut = 20
+            elif (cut-ref1.max()) < 5:
+                cut = ref1.max()+1
+                if ref1.max() > 20:
+                    cut = 20
+            mask = ref1 < cut
+            indx = np.arange(ndim)[mask]
+            self.sapt_dimers_ref[f] = ref[indx].copy()
+            self.sapt_dimers_indx[f] = indx.copy()
 
         self.do_sapt_dimers = True
         os.chdir(self.basedir)
@@ -890,8 +905,22 @@ polar-eps         1e-06
         
         self.ccsdt_dimers = fnames
         self.ccsdt_dimers_ref = {}
+        self.ccsdt_dimers_indx = {}
         for f in fnames:
-            self.ccsdt_dimers_ref[f] = np.load(f"{qmpath}/ccsdt_dimers/{f}.npy")
+            ref = np.load(f"{qmpath}/ccsdt_dimers/{f}.npy")
+            ndim = ref.shape[0]
+
+            cut = 2*np.std(ref)
+            if cut > 20:
+                cut = 20
+            elif (cut-ref.max()) < 5:
+                cut = ref.max()+1
+                if ref.max() > 20:
+                    cut = 20
+            mask = ref < cut
+            indx = np.arange(ndim)[mask]
+            self.ccsdt_dimers_ref[f] = ref[indx].copy()
+            self.ccsdt_dimers_indx[f] = indx.copy()
 
         self.do_ccsdt_dimers = True
         os.chdir(self.basedir)
@@ -1198,24 +1227,26 @@ polar-eps         1e-06
             fnames = [f"{nm}",f"{nm}-mol1.xyz",f"{nm}-mol2.xyz"]
                         
             comps = self.analyze_arc(fnames[0],'tinker.key',False)
+            indx = self.sapt_dimers_indx[nm]
+            ndim = int(indx.shape[0])
             if comps.sum() > 1e5:
-                res = np.zeros((len(nm_dimers),2,5))+100
-                err = np.zeros((len(nm_dimers),2,5))+1e6
-                return res,err
-            terms1 = np.array([comps[:,9],comps[:,7],comps[:,10]+comps[:,11], comps[:,8],comps.sum(axis=1)])
-            terms1 = terms1.T
-            comps,inter2 = self.analyze(fnames[1])
-            terms2 = np.array([comps[9],comps[7],comps[10]+comps[11], comps[8],comps.sum()])
-            comps,inter3 = self.analyze(fnames[2])
-            terms3 = np.array([comps[9],comps[7],comps[10]+comps[11], comps[8],comps.sum()])
+                res1 = np.zeros((ndim,5))+100
+                err = np.zeros((ndim,5))+1e6
+            else:
+                terms1 = np.array([comps[:,9],comps[:,7],comps[:,10]+comps[:,11], comps[:,8],comps.sum(axis=1)])
+                terms1 = terms1.T
+                comps,inter2 = self.analyze(fnames[1])
+                terms2 = np.array([comps[9],comps[7],comps[10]+comps[11], comps[8],comps.sum()])
+                comps,inter3 = self.analyze(fnames[2])
+                terms3 = np.array([comps[9],comps[7],comps[10]+comps[11], comps[8],comps.sum()])
 
-            final_energy = terms1-(terms2+terms3)
-            
-            ref = ref_energy[nm]
-            
-            err = (final_energy - ref)
+                final_energy = terms1-(terms2+terms3)
+                res1 = final_energy[indx]
+                ref = ref_energy[nm]
+                
+                err = (res1 - ref)
             errors.append(err)
-            all_componts.append(final_energy)
+            all_componts.append(res1)
         
         os.chdir(self.basedir)
 
@@ -1289,24 +1320,29 @@ polar-eps         1e-06
         all_componts = []
         errors = []
 
-        res,components = self.analyze_arc(nm_dimers)
-        for kk,val in enumerate(components):
-            if val.sum() > 1e5:
-                res1 = np.zeros((len(nm_dimers),5))+100
-                err = [1e6]*len(nm_dimers)
-                return res1,err
-        
+        inter_energy,all_comps = self.analyze_arc(nm_dimers)        
         for k,nm in enumerate(nm_dimers):
-            comps = res[k]
+            comps = inter_energy[k]
             ref = allref[nm]
+
+            indx = self.ccsdt_dimers_indx[nm]
+            ndim = int(indx.shape[0])
+            res1 = comps[indx]
+            if res1.sum() > 1e5 or len(res1) != len(ref):
+                res1 = np.zeros(ndim)+100
+                err = np.zeros(ndim)+1e6
+            else:
+                err = np.abs(res1 - ref)
             
-            if comps.sum() > 1e5 or len(comps) != len(ref):
-                res1 = np.zeros((len(nm_dimers),5))+100
-                err = [1e6]*len(nm_dimers)
-                return res1,err
-            err = np.abs(np.array(comps) - ref)
-            errors.append(err.sum())
-            all_componts.append(comps)
+            testerr = np.abs(err)
+            testerr = np.sort(testerr)[::-1]
+            ndim = int(ndim/2)
+
+            if ndim > 10:
+                ndim = 10
+            err = testerr.mean()+testerr[:ndim].mean()
+            errors.append(err)
+            all_componts.append(res1)
         
         os.chdir(self.basedir)
         return np.array(all_componts),errors
@@ -1760,18 +1796,25 @@ polar-eps         1e-06
             
             if len(test) > 1:
                 allres = self.checkparams(new_params)
-                self.log[i] = allres
-                save_pickle(self.log, self.dumpfile)
-                
                 totalerror = allres['error']
+
                 #### For differential evolution
                 if optimizer == 'genetic':
                     errors = totalerror.sum()
                 else:
                     errors = totalerror.copy()
 
-                return errors
-        
+                if i > 1:
+                    perror = self.log[i-1]['error']
+                    if perror.shape[0] == totalerror.shape[0] or optimizer == 'genetic':
+                        self.log[i] = allres
+                        save_pickle(self.log, self.dumpfile)
+
+                        return errors
+                else:  
+                    self.log[i] = allres
+                    save_pickle(self.log, self.dumpfile)
+                    return errors      
 
         allres = {'params': new_params,
                   'potrms': 0,
@@ -1846,22 +1889,35 @@ polar-eps         1e-06
             allres['clusters'] = [calc_components, errors]
 
         if self.do_sapt_dimers:
-            calc_components, errors = self.compute_dimer_arc()        
+            calc_components, errors = self.compute_dimer_arc()   
+            ndim = int(errors.shape[0]/2)
+            if ndim > 10:
+                ndim = 10 
             if 'chgpen' in termfit or 'multipole' in termfit:
-                err = np.abs(errors)[:,0].flatten().sum()
+                testerr = np.abs(errors)[:,0]
+                testerr = np.sort(testerr)[::-1]
+                err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
             if 'dispersion' in termfit:
-                err = np.abs(errors)[:,3].flatten().sum()
+                testerr = np.abs(errors)[:,3]
+                testerr = np.sort(testerr)[::-1]
+                err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
             if 'repulsion' in termfit:
-                err = np.abs(errors)[:,1].flatten().sum()
+                testerr = np.abs(errors)[:,1]
+                testerr = np.sort(testerr)[::-1]
+                err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
             if 'polarize' in termfit or 'chgtrn' in termfit:
-                err = np.abs(errors)[:,2].flatten().sum()
+                testerr = np.abs(errors)[:,2]
+                testerr = np.sort(testerr)[::-1]
+                err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
 
             if len(termfit) > 2:
-                err = np.abs(errors)[:,4].flatten().sum()
+                testerr = np.abs(errors)[:,4]
+                testerr = np.sort(testerr)[::-1]
+                err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
 
             allres['sapt_dimers'] = [calc_components, errors]
@@ -1887,7 +1943,7 @@ polar-eps         1e-06
         
         ### Minimize liquid box
         minbox = False
-        if totalerror.mean() < 1e4 and optimizer == 'genetic':
+        if totalerror.mean() < 100 and optimizer == 'genetic':
             minbox = True
         elif optimizer != 'genetic':
             minbox = True
@@ -1914,10 +1970,14 @@ polar-eps         1e-06
             rms = 100
             totalerror = np.append(totalerror,(1e6))
 
-
-        if totalerror.sum() > 700:
+        if totalerror.sum() > 300:
             proxyerr = totalerror[:8].sum()
-            totalerror = np.append(totalerror,[proxyerr/5,proxyerr/3])
+            if nvals == 1:
+                totalerror = np.append(totalerror,proxyerr/5)
+            elif nvals == 2:
+                totalerror = np.append(totalerror,[proxyerr/5,proxyerr/3])
+            else:
+                np.append(totalerror,np.zeros(nvals)+proxyerr/5)
             err = np.zeros(nvals)+1e6
             res = np.zeros(nvals)-100
             allres['liqres'] = [res, err]
@@ -1926,11 +1986,11 @@ polar-eps         1e-06
         else:
             if not self.fitliq:
                 if minbox and rms < 1 and boxerr < 10:
-                    err,res = self.run_npt(10, 10000, 100000)
+                    err,res = self.run_npt(5, 5000, 100000)
                     err = np.abs(err)
                 else:
                     err = np.zeros(nvals)+1e6
-                    res = np.zeros(5)-100    
+                    res = np.zeros(nvals)-100    
                 totalerror = np.append(totalerror,err*1e-3)
             else:
                 if rms < 1 and boxerr < 10:
@@ -2035,6 +2095,8 @@ polar-eps         1e-06
 
                 save_pickle(alllog, f"{self.dumpfile}") 
                 os.system(f"rm {self.dumpfile}_temp")
+        else:
+            os.system(f"cp {self.dumpfile}_temp {self.dumpfile}")
 
         os.chdir(self.basedir)
         return opt
