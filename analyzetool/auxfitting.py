@@ -1781,8 +1781,10 @@ polar-eps         1e-06
         n = self.molnumber
         path_mol = f"{self.basedir}/{n}"
         termfit = self.termfit
-        info = self.liquidref[0]
-        nvals = len(info) - 1
+
+        if self.testliq or self.fitliq:
+            info = self.liquidref[0]
+            nvals = len(info) - 1
 
         i+=1
 
