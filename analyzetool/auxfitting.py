@@ -1257,7 +1257,7 @@ polar-eps         1e-06
 
             return all_componts,allerr
         else:
-            return np.array(all_componts),np.array(errors)
+            return np.array(all_componts[0]),np.array(errors[0])
 
     def compute_cluster(self):
         n = self.molnumber
@@ -1345,6 +1345,8 @@ polar-eps         1e-06
             all_componts.append(res1)
         
         os.chdir(self.basedir)
+        if len(nm_dimers) == 1:
+            return res1,errors
         return np.array(all_componts),errors
     
     def liquid_fitproperties(self):
