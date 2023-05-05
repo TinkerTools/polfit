@@ -958,6 +958,7 @@ polar-eps         1e-06
         else:
             pol2 = pol.copy()
 
+        self.molpol = pol2.copy()
         pol2 = np.abs(pol2)
         rms = np.abs(pol2-ref)
         return rms
@@ -1868,7 +1869,7 @@ polar-eps         1e-06
         if self.do_ccsdt_dimers:
             calc_components, errors = self.compute_ccsdt_dimer()
             allres['ccsdt_dimers'] = [calc_components, errors]
-            # errors[0] *= 1.5
+            errors = [5*a for a in errors]
             errlist += errors
         
         if self.do_clusters:
@@ -1926,7 +1927,7 @@ polar-eps         1e-06
 
             allres['sapt_dimers'] = [calc_components, errors]
 
-        if 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit or 'chgtrn' in termfit:
+        if 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit:
             err_pol = self.get_polarize()
             allres['polarize'] = err_pol
             if'polarize' in termfit and len(termfit) < 3:
