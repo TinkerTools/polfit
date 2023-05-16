@@ -2052,7 +2052,7 @@ polar-eps         1e-06
         self.log[i] = dumpres
 
         save_pickle(self.log, f"{self.dumpfile}_temp")
-        save_pickle(dumpres, self.dumpresult)           
+        save_pickle(allres, self.dumpresult)           
         
         #### For differential evolution
         if optimizer == 'genetic':
