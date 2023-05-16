@@ -217,7 +217,8 @@ class Auxfit(object):
         # Directory to dump data from the run
         ts = time.time()
         st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d-%H-%M')
-        self.dumpfile = f"{dumpdir}/run-{st}.pickle"
+        self.dumpfile = f"{dumpdir}/log-{st}.pickle"
+        self.dumpresult = f"{dumpdir}/result-{st}.pickle"
 
         gas = f"{refliqdir}/gas.dcd"
         if os.path.isfile(gas):
@@ -1831,6 +1832,16 @@ polar-eps         1e-06
                   'liqres': [],
                   'error': [] }
 
+        dumpres = {'params': new_params,
+                  'potrms': 0,
+                  'dimers': [],
+                  'ccsdt_dimers': [],
+                  'clusters': [],
+                  'sapt_dimers': [],
+                  'polarize': [],
+                  'liqres': [],
+                  'error': [] }
+
         os.chdir(path_mol)
         self.make_key(new_params,keytype="both")
         ## potential fit
@@ -1844,6 +1855,7 @@ polar-eps         1e-06
             # else:
             poterror = rms*10
             allres['potrms'] = rms
+            dumpres['potrms'] = rms
         
         errlist = []
         if self.do_dimers:
@@ -1865,71 +1877,93 @@ polar-eps         1e-06
                 errlist.append(err)
 
             allres['dimers'] = [calc_components, errors]
+            dumpres['dimers'] = [calc_components, errors]
 
         if self.do_ccsdt_dimers:
             calc_components, errors = self.compute_ccsdt_dimer()
+
             allres['ccsdt_dimers'] = [calc_components, errors]
+            dumpres['ccsdt_dimers'] = errors
+
             errors = [5*a for a in errors]
             errlist += errors
         
         if self.do_clusters:
-            calc_components, errors = self.compute_cluster()        
+            calc_components, errors = self.compute_cluster()
+            errloc = []        
             if 'chgpen' in termfit or 'multipole' in termfit:
                 err = np.abs(errors)[:,0].sum()
                 errlist.append(err)
+                errloc.append(err)
             if 'dispersion' in termfit:
                 err = np.abs(errors)[:,3].sum()
                 errlist.append(err)
+                errloc.append(err)
             if 'repulsion' in termfit:
                 err = np.abs(errors)[:,1].sum()
                 errlist.append(err)
+                errloc.append(err)
             if 'polarize' in termfit or 'chgtrn' in termfit:
                 err = np.abs(errors)[:,2].sum()
                 errlist.append(err)
+                errloc.append(err)
 
             if len(termfit) > 2:
                 err = np.abs(errors)[:,4].sum()
                 errlist.append(err)
+                errloc.append(err)
 
             allres['clusters'] = [calc_components, errors]
+            dumpres['clusters'] = errloc
 
         if self.do_sapt_dimers:
             calc_components, errors = self.compute_dimer_arc()   
             ndim = int(errors.shape[0]/2)
             if ndim > 10:
                 ndim = 10 
+            
+            errloc = [] 
             if 'chgpen' in termfit or 'multipole' in termfit:
                 testerr = np.abs(errors)[:,0]
                 testerr = np.sort(testerr)[::-1]
                 err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
+                errloc.append(err)
             if 'dispersion' in termfit:
                 testerr = np.abs(errors)[:,3]
                 testerr = np.sort(testerr)[::-1]
                 err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
+                errloc.append(err)
             if 'repulsion' in termfit:
                 testerr = np.abs(errors)[:,1]
                 testerr = np.sort(testerr)[::-1]
                 err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
+                errloc.append(err)
             if 'polarize' in termfit or 'chgtrn' in termfit:
                 testerr = np.abs(errors)[:,2]
                 testerr = np.sort(testerr)[::-1]
                 err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
+                errloc.append(err)
 
             if len(termfit) > 2:
                 testerr = np.abs(errors)[:,4]
                 testerr = np.sort(testerr)[::-1]
                 err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
+                errloc.append(err)
 
             allres['sapt_dimers'] = [calc_components, errors]
+            dumpres['clusters'] = errloc
 
         if 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit:
             err_pol = self.get_polarize()
+
             allres['polarize'] = err_pol
+            dumpres['polarize'] = err_pol
+
             if'polarize' in termfit and len(termfit) < 3:
                 err_pol *= 4
 
@@ -1996,6 +2030,7 @@ polar-eps         1e-06
                 totalerror = np.append(totalerror,err*1e-3)
 
             allres['liqres'] = [res, err]
+            dumpres['liqres'] = [res, err]
         
         if self.fitliq:
             if rms < 1 and boxerr < 10:
@@ -2009,10 +2044,15 @@ polar-eps         1e-06
             totalerror = np.append(totalerror,10*err)
             
             allres['liqres'] = [res, err]
+            dumpres['liqres'] = [res, err]
         
         allres['error'] = totalerror
-        self.log[i] = allres
-        save_pickle(self.log, f"{self.dumpfile}_temp")       
+        dumpres['error'] = totalerror
+
+        self.log[i] = dumpres
+
+        save_pickle(self.log, f"{self.dumpfile}_temp")
+        save_pickle(dumpres, self.dumpresult)           
         
         #### For differential evolution
         if optimizer == 'genetic':
@@ -2088,7 +2128,7 @@ polar-eps         1e-06
         ### Error at solution
         err = opt.fun
         final_prms = opt.x
-        self.optimize_prms(final_prms)
+        errors = self.optimize_prms(final_prms)
 
         ### Save permanent dumpfile
         if os.path.isfile(self.dumpfile):
@@ -2099,7 +2139,7 @@ polar-eps         1e-06
 
                 alllog = {**alllog, **log}
 
-                save_pickle(alllog, f"{self.dumpfile}") 
+                save_pickle(alllog, self.dumpfile) 
                 os.system(f"rm {self.dumpfile}_temp")
         else:
             os.system(f"cp {self.dumpfile}_temp {self.dumpfile}")

@@ -18,15 +18,17 @@ def set_tinkerpath(path):
     tinkerpath = path
     
 
-def analyze(workdir,xyzfn,keyfile="tinker.key",opt='e',tkpath=""):
+def analyze(workdir,xyzfn,keyfile="tinker.key",opt='e',tkpath="",tinker9=True):
     currdir = os.getcwd()
     os.chdir(workdir)
 
     if len(tkpath) > 0:
         set_tinkerpath(tkpath)
 
-
-    cmd = f'{tinkerpath}/bin/analyze'
+    if tinker9:
+        cmd = f'{tinkerpath}/bin/tinker9 analyze'
+    else:
+        cmd = f'{tinkerpath}/bin/analyze'
 
     if xyzfn[-4:] != '.xyz':
         xyzfn += '.xyz'
@@ -68,7 +70,7 @@ def analyze(workdir,xyzfn,keyfile="tinker.key",opt='e',tkpath=""):
     os.chdir(currdir)
     return eng_cpm,intermol
 
-def analyze_arc(workdir,nm_dimers,keyfile="tinker.key",intermolecular=True,tkpath=""): 
+def analyze_arc(workdir,nm_dimers,keyfile="tinker.key",intermolecular=True,tkpath="",tinker9=True): 
     currdir = os.getcwd()    
     os.chdir(workdir)
 
@@ -78,7 +80,10 @@ def analyze_arc(workdir,nm_dimers,keyfile="tinker.key",intermolecular=True,tkpat
 
     os.system("rm -f *.err*")
 
-    cmd = f'{tinkerpath}/bin/analyze'
+    if tinker9:
+        cmd = f'{tinkerpath}/bin/tinker9 analyze'
+    else:
+        cmd = f'{tinkerpath}/bin/analyze'
 
     single = False
     fnames = nm_dimers
