@@ -145,6 +145,7 @@ class Auxfit(object):
         self.dumpdata = True
         self.fitliq = False
         self.usedatafile = False
+        self.computeall = False
 
         self.datadir = datadir
         self.smallmoldir = smallmoldir
@@ -1858,7 +1859,7 @@ polar-eps         1e-06
             dumpres['potrms'] = rms
         
         errlist = []
-        if self.do_dimers:
+        if self.do_dimers or self.computeall:
             calc_components, errors = self.compute_dimer_energ()
             if 'chgpen' in termfit or 'multipole' in termfit:
                 err = np.abs(errors)[:,0].sum()
@@ -1879,7 +1880,7 @@ polar-eps         1e-06
             allres['dimers'] = [calc_components, errors]
             dumpres['dimers'] = [calc_components, errors]
 
-        if self.do_ccsdt_dimers:
+        if self.do_ccsdt_dimers or self.computeall:
             calc_components, errors = self.compute_ccsdt_dimer()
 
             allres['ccsdt_dimers'] = [calc_components, errors]
@@ -1888,7 +1889,7 @@ polar-eps         1e-06
             errors = [5*a for a in errors]
             errlist += errors
         
-        if self.do_clusters:
+        if self.do_clusters or self.computeall:
             calc_components, errors = self.compute_cluster()
             errloc = []        
             if 'chgpen' in termfit or 'multipole' in termfit:
@@ -1916,7 +1917,7 @@ polar-eps         1e-06
             allres['clusters'] = [calc_components, errors]
             dumpres['clusters'] = errloc
 
-        if self.do_sapt_dimers:
+        if self.do_sapt_dimers or self.computeall:
             calc_components, errors = self.compute_dimer_arc()   
             ndim = int(errors.shape[0]/2)
             if ndim > 10:
@@ -1958,7 +1959,8 @@ polar-eps         1e-06
             allres['sapt_dimers'] = [calc_components, errors]
             dumpres['sapt_dimers'] = errloc
 
-        if 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit:
+        poltest = 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit
+        if poltest or self.computeall:
             err_pol = self.get_polarize()
 
             allres['polarize'] = err_pol
@@ -2128,6 +2130,8 @@ polar-eps         1e-06
         ### Error at solution
         err = opt.fun
         final_prms = opt.x
+
+        self.computeall = True       
         errors = self.optimize_prms(final_prms)
 
         ### Save permanent dumpfile
