@@ -1956,7 +1956,7 @@ polar-eps         1e-06
                 errloc.append(err)
 
             allres['sapt_dimers'] = [calc_components, errors]
-            dumpres['clusters'] = errloc
+            dumpres['sapt_dimers'] = errloc
 
         if 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit:
             err_pol = self.get_polarize()
