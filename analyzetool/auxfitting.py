@@ -2099,7 +2099,10 @@ polar-eps         1e-06
                 else:
                     bounds.append((round1(brm*0.80),round1(brm*1.20)))
 
-            opt = optimize.differential_evolution(self.optimize_prms,bounds)
+            try:
+                opt = optimize.differential_evolution(self.optimize_prms,bounds)
+            except:
+                os.system(f"touch {path_mol}/FIT_ERROR")
 
         else:
             ## make bounds
@@ -2120,9 +2123,13 @@ polar-eps         1e-06
 
             lbounds = np.array(lbounds)
             ubounds = np.array(ubounds)
-            opt = optimize.least_squares(self.optimize_prms,initprms,
-            jac='3-point',bounds=(lbounds,ubounds),f_scale=0.5,
-            diff_step=0.01,loss='soft_l1',verbose=2)
+
+            try:
+                opt = optimize.least_squares(self.optimize_prms,initprms,
+                jac='3-point',bounds=(lbounds,ubounds),f_scale=0.5,
+                diff_step=0.01,loss='soft_l1',verbose=2)
+            except:
+                os.system(f"touch {path_mol}/FIT_ERROR")
 
         print(opt.x)
         sys.stdout.flush()
@@ -2149,6 +2156,9 @@ polar-eps         1e-06
             os.system(f"cp {self.dumpfile}_temp {self.dumpfile}")
 
         os.chdir(self.basedir)
+
+        os.system(f"touch {path_mol}/FIT_DONE")
+
         return opt
 
     
