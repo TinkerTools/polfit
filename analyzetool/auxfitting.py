@@ -2157,6 +2157,7 @@ polar-eps         1e-06
 
         os.chdir(self.basedir)
 
+        self.computeall = False
         os.system(f"touch {path_mol}/FIT_DONE")
 
         return opt
