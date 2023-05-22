@@ -2137,7 +2137,10 @@ polar-eps         1e-06
                 err = opt.fun
                 final_prms = opt.x
                 errors = self.optimize_prms(final_prms)
-            except:
+            except Exception as inst:
+                print(type(inst))
+                print(inst.args)
+                print(inst)
                 fail = True
 
         
