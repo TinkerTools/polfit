@@ -1521,7 +1521,7 @@ polar-eps         1e-06
             else:
                 cmd_liq = commandd
 
-            liqproc = subprocess.Popen(cmd_liq, shell=True, universal_newlines='expand_cr', preexec_fn=os.setsid)
+            liqproc = subprocess.Popen("exec "+cmd_liq, shell=True, universal_newlines='expand_cr')
             job_pid1 = os.getpgid(liqproc.pid)
             filename = os.path.abspath("./liquid.log")
 
@@ -1529,10 +1529,10 @@ polar-eps         1e-06
                 prog = os.path.join(tinkerpath, csplit2[0])
                 csplit2[0] = prog
                 commd2 = ' '.join(csplit2) + ' > gas.log 2>&1'
-                gas_run = subprocess.Popen(commd2, shell=True, universal_newlines='expand_cr', preexec_fn=os.setsid)
+                gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
             else:
                 commd2 = 'tail gas.xyz'
-                gas_run = subprocess.Popen(commd2, shell=True, universal_newlines='expand_cr', preexec_fn=os.setsid)
+                gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
             
             job_pid2 = os.getpgid(gas_run.pid)
 
@@ -1544,7 +1544,7 @@ polar-eps         1e-06
             else:
                 sleeper = 60
             
-            timeout = 1.2*simlen*3.6
+            timeout = 2.5*simlen*3.6
             last_frame = 0
             diff_timer = 0
             diff = 5
@@ -1599,10 +1599,10 @@ polar-eps         1e-06
             if sucess:
                 liqproc.communicate()
             else:
-                os.killpg(os.getpgid(job_pid1), signal.SIGTERM)
+                liqproc.kill()
 
             try:
-                os.killpg(os.getpgid(job_pid2), signal.SIGTERM)
+                gas_run.kill()
             except:
                 None
 
@@ -1626,12 +1626,12 @@ polar-eps         1e-06
                 csplit[0] = prog
                 commd2 = ' '.join(csplit[:-2]) + ' > ' + csplit[-1] + ' 2>&1'
 
-            _run = subprocess.Popen(commd2, shell=True, universal_newlines='expand_cr', preexec_fn=os.setsid)
+            _run = subprocess.Popen("exec " +commd2, shell=True, universal_newlines='expand_cr')
             _run.communicate()
 
             try:
                 job_pid1 = os.getpgid(_run.pid)
-                os.killpg(os.getpgid(job_pid1), signal.SIGTERM)
+                _run.kill()
             except:
                 None
             
