@@ -2079,6 +2079,8 @@ polar-eps         1e-06
         
         self.log = {}
         bounds = []
+        fail = False
+
         if optimizer == 'genetic':
             
             for brm in initprms:
@@ -2102,8 +2104,7 @@ polar-eps         1e-06
             try:
                 opt = optimize.differential_evolution(self.optimize_prms,bounds)
             except:
-                os.system(f"touch {path_mol}/FIT_ERROR")
-
+                fail = True
         else:
             ## make bounds
             ubounds = []
@@ -2128,18 +2129,18 @@ polar-eps         1e-06
                 opt = optimize.least_squares(self.optimize_prms,initprms,
                 jac='3-point',bounds=(lbounds,ubounds),f_scale=0.5,
                 diff_step=0.01,loss='soft_l1',verbose=2)
+
+                print(opt.x)
+                sys.stdout.flush()
+
+                ### Error at solution
+                err = opt.fun
+                final_prms = opt.x
+                errors = self.optimize_prms(final_prms)
             except:
-                os.system(f"touch {path_mol}/FIT_ERROR")
+                fail = True
 
-        print(opt.x)
-        sys.stdout.flush()
-
-        ### Error at solution
-        err = opt.fun
-        final_prms = opt.x
-       
-        errors = self.optimize_prms(final_prms)
-
+        
         ### Save permanent dumpfile
         if os.path.isfile(self.dumpfile):
             alllog = load_pickle(self.dumpfile)
@@ -2156,8 +2157,12 @@ polar-eps         1e-06
 
         os.chdir(self.basedir)
 
-        os.system(f"touch {path_mol}/FIT_DONE")
-
+        if fail:
+            os.system(f"touch {path_mol}/FIT_ERROR")
+            return 0
+        else:
+            os.system(f"touch {path_mol}/FIT_DONE")
+        
         return opt
 
     
