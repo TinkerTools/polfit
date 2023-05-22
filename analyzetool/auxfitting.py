@@ -1859,7 +1859,6 @@ polar-eps         1e-06
             allres['potrms'] = rms
             dumpres['potrms'] = rms
         
-        print("Checkpoint 1")
         sys.stdout.flush()
         errlist = []
         if self.do_dimers or self.computeall:
@@ -1883,7 +1882,6 @@ polar-eps         1e-06
             allres['dimers'] = [calc_components, errors]
             dumpres['dimers'] = [calc_components, errors]
 
-        print("Checkpoint 2")
         sys.stdout.flush()
         if self.do_ccsdt_dimers or self.computeall:
             calc_components, errors = self.compute_ccsdt_dimer()
@@ -1894,7 +1892,6 @@ polar-eps         1e-06
             errors = [5*a for a in errors]
             errlist += errors
         
-        print("Checkpoint 3")
         sys.stdout.flush()
         if self.do_clusters or self.computeall:
             calc_components, errors = self.compute_cluster()
@@ -1924,7 +1921,6 @@ polar-eps         1e-06
             allres['clusters'] = [calc_components, errors]
             dumpres['clusters'] = errloc
 
-        print("Checkpoint 4")
         sys.stdout.flush()
         if self.do_sapt_dimers or self.computeall:
             calc_components, errors = self.compute_dimer_arc()   
@@ -1968,7 +1964,6 @@ polar-eps         1e-06
             allres['sapt_dimers'] = [calc_components, errors]
             dumpres['sapt_dimers'] = errloc
 
-        print("Checkpoint 5")
         sys.stdout.flush()
         poltest = 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit
         if poltest or self.computeall:
@@ -1984,7 +1979,6 @@ polar-eps         1e-06
 
         os.chdir(path_mol)
         
-        print("Checkpoint 5")
         sys.stdout.flush()
         if poterror > 0:
             errlist.append(poterror)
@@ -2047,7 +2041,6 @@ polar-eps         1e-06
             allres['liqres'] = [res, err]
             dumpres['liqres'] = [res, err]
         
-        print("Checkpoint 6")
         sys.stdout.flush()
         if self.fitliq:
             if rms < 1 and boxerr < 10:
