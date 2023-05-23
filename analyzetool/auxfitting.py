@@ -1605,7 +1605,7 @@ polar-eps         1e-06
             else:
                 liqproc.kill()
 
-            filename = os.path.abspath("./gaslog")
+            filename = os.path.abspath("./gas.log")
             ngasfrm = get_last_frame(filename)
 
             if ngasfrm >= 6:
