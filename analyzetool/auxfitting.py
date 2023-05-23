@@ -1545,7 +1545,10 @@ polar-eps         1e-06
             else:
                 sleeper = 60
             
-            timeout = 2.5*simlen*3.6
+            if simlen < 50:
+                timeout = 5*60
+            else:
+                timeout = 2.5*simlen*3.6
             last_frame = 0
             diff_timer = 0
             diff = 5
@@ -1602,11 +1605,22 @@ polar-eps         1e-06
             else:
                 liqproc.kill()
 
-            try:
-                gas_run.kill()
-            except:
-                None
+            filename = os.path.abspath("./gaslog")
+            ngasfrm = get_last_frame(filename)
 
+            if ngasfrm >= 6:
+                gas_run.kill()
+            else:
+                init_time = time.time() 
+                time.sleep(5)
+                while ngasfrm < 6:
+                    diff_timer = time.time() - init_time
+                    
+                    if diff_timer > timeout:
+                        gas_run.kill()
+                    
+                    time.sleep(5)
+                    ngasfrm = get_last_frame(filename)
         else:
             if 'liquid' in csplit[1]:
                 if 'analyze' in csplit[0]:
