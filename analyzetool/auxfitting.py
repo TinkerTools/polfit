@@ -13,7 +13,7 @@ import scipy.optimize as optimize
 from time import gmtime, strftime
 import warnings
 warnings.filterwarnings('ignore') # make the notebook nicer
-from shutil import copyfile
+import shutil 
 from collections import namedtuple
 import subprocess, threading
 import pickle
@@ -75,6 +75,25 @@ def count_atoms(fn):
             c+=1
 
     return c    
+
+def copy_files(src,destdir):
+    fname = os.path.basename(src)
+
+    if os.path.isdir(destdir):
+        destnm = f"{destdir}/{fname}"
+    else:
+        destnm = destdir
+    if os.path.isfile(src):
+        if os.path.isfile(destnm):
+            if os.path.samefile(src,destnm):
+                return
+            else:
+                os.remove(destnm)
+    else:
+        return
+    
+    shutil.copy(src,destnm)
+    return
 
 def get_last_frame(fname):    
     if 'gas2.log' in fname:
@@ -158,12 +177,8 @@ class Auxfit(object):
         refliqdir = f"{self.basedir}/{n}/ref_liquid"
         dumpdir = f"{self.basedir}/{n}/dumpdata"
 
-        os.system(f"mkdir -p {potdir}")
-        os.system(f"mkdir -p {poldir}")
-        os.system(f"mkdir -p {dimerdir}")
-        os.system(f"mkdir -p {liqdir}")
-        os.system(f"mkdir -p {dumpdir}")
-
+        folders = [potdir,poldir,dimerdir,liqdir,dumpdir]
+                
         prmfn = f"{self.datadir}/prmfiles/{n}.prm"
         waterprm = f"{self.datadir}/prmfiles/water-prms.prm"
         xyzpath = f"{self.datadir}/boxes/{n}"
@@ -171,11 +186,26 @@ class Auxfit(object):
         elecpot = f"{self.datadir}/elec-pot/{n}"
         molpol = f"{self.datadir}/mol-polarize/{n}"
 
-        os.system(f"cp {prmfn} {potdir}")
-        os.system(f"cp {prmfn} {dimerdir}")
-        os.system(f"cp {prmfn} {liqdir}")
-        os.system(f"cp {prmfn} {poldir}")
+        for k,dest in enumerate(folders):
+            if not os.path.isdir(dest):
+                os.makedirs(dest)
 
+            if dest != dumpdir:
+                copy_files(prmfn,dest)
+            
+            if dest == liqdir:
+                copy_files(f"{xyzpath}/monomer.xyz",f"{dest}/gas.xyz")
+                copy_files(f"{xyzpath}/monomer.key",f"{dest}/gas.key")
+                copy_files(f"{xyzpath}/liquid.xyz",f"{dest}/gas.key")
+                copy_files(f"{xyzpath}/liquid.key",f"{dest}/gas.key")
+            if dest == poldir:
+                copy_files(f"{molpol}/monomer.xyz",dest)
+            if dest == dimerdir:
+                os.system(f"cat {waterprm} >> {dest}/{n}.prm")
+            if dest == potdir:
+                copy_files(f"{elecpot}/monomer.pot",dest)
+                copy_files(f"{elecpot}/monomer.xyz",dest)
+        
         self.gasdcd = ""
         if os.path.isdir(f"{self.smallmoldir}/init_simulations-2/{n}"):
             os.system(f"ln -s {self.smallmoldir}/init_simulations-2/{n} {refliqdir}")
@@ -183,25 +213,7 @@ class Auxfit(object):
             gasdcd = f"{self.smallmoldir}/init_simulations-2/{n}/gas.arc"
             if os.path.isfile(gasdcd):
                 self.gasdcd = gasdcd
-            # self.Nmol = count_atoms(f"")
-
-        os.system(f"cp {xyzpath}/monomer.xyz {potdir}")
-        os.system(f"cp {xyzpath}/monomer.key {potdir}")
-
-        os.system(f"cp {molpol}/monomer.xyz {poldir}")
-
-        os.system(f"cp {xyzpath}/monomer.xyz {liqdir}/gas.xyz")
-        os.system(f"cp {xyzpath}/monomer.key {liqdir}/gas.key")
-        os.system(f"cp {xyzpath}/liquid.xyz {liqdir}")
-        os.system(f"cp {xyzpath}/liquid.key {liqdir}")
-
-        os.system(f"cp {xyzpath}/monomer.key {dimerdir}/tinker.key")
-        os.system(f"cat {waterprm} >> {dimerdir}/{n}.prm")
-
-        os.system(f"cp {elecpot}/monomer.* {potdir}")
-        os.system(f"rm -f {potdir}/monomer.key_*")
-
-        ## 
+        
         self.Natoms = count_atoms(f"{xyzpath}/monomer.xyz")
         self.Natomsbox = count_atoms(f"{xyzpath}/liquid.xyz")
         self.Nmol = int(self.Natomsbox/self.Natoms)
