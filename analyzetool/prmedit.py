@@ -1138,6 +1138,7 @@ def update_xyztypes(xyzfn,fnout="",newcoords=[],maptypes=None):
             s[0] = int(s[0]) ## atom ID
             s[5] = int(s[5]) ## type
         except:
+            newxyz += line
             continue
 
         if len(newcoords) > 0:
