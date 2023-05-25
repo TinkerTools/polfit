@@ -1309,15 +1309,7 @@ polar-eps         1e-06
             all_componts.append(comps)
 
         os.chdir(self.basedir)
-
-        if len(nm_dimers) > 1:
-            allerr = errors[0]
-            for e in errors[1:]:
-                allerr = np.concatenate((allerr,e))
-
-            return all_componts,allerr
-        else:
-            return np.array(all_componts),np.array(errors)
+        return np.array(all_componts),np.array(errors)
 
     def compute_ccsdt_dimer(self):
         n = self.molnumber
