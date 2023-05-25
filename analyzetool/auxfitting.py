@@ -746,17 +746,17 @@ polar-eps         1e-06
         elif keytype == 'gas':
             with open(f"{potdir}/monomer.key",'w') as file:
                 file.write(keygas+keyfile)
-            os.system(f"cp {potdir}/monomer.key {liqdir}/gas.key")
-            os.system(f"cp {potdir}/monomer.key {dimerdir}/tinker.key")
-            os.system(f"cp {potdir}/monomer.key {poldir}/")
+            copy_files(f"{potdir}/monomer.key", f"{liqdir}/gas.key")
+            copy_files(f"{potdir}/monomer.key", f"{dimerdir}/tinker.key")
+            copy_files(f"{potdir}/monomer.key", poldir)
         else:
             with open(f"{liqdir}/liquid.key",'w') as file:
                 file.write(keyliq+keyfile)
             with open(f"{potdir}/monomer.key",'w') as file:
                 file.write(keygas+keyfile)
-            os.system(f"cp {potdir}/monomer.key {liqdir}/gas.key")
-            os.system(f"cp {potdir}/monomer.key {dimerdir}/tinker.key")
-            os.system(f"cp {potdir}/monomer.key {poldir}/")
+            copy_files(f"{potdir}/monomer.key", f"{liqdir}/gas.key")
+            copy_files(f"{potdir}/monomer.key", f"{dimerdir}/tinker.key")
+            copy_files(f"{potdir}/monomer.key", poldir)
 
 
     def prepare_checkdata(self,filenm=""):
@@ -792,20 +792,18 @@ polar-eps         1e-06
         ref_energy = {}
         for nm in refnm_dimers:
             if os.path.isfile(f"{qmpath}/sapt-res-{nm}.npy"):
-                os.system(f"cp {qmpath}/sapt-res-{nm}.npy .")
+                copy_files(f"{qmpath}/sapt-res-{nm}.npy",dimerdir)
 
-                os.system(f"cp {qmpath}/{nm}-conf_*.xyz .")
+                files = next(os.walk(qmpath))[2]
+                for fn in files:
+                    if 'conf' in fn and nm in fn and 'xyz' in fn:
+                        copy_files(f"{qmpath}/{fn}",dimerdir)
 
                 ref_energy[nm] = np.load(f"{qmpath}/sapt-res-{nm}.npy")
-
-
                 nm_dimers.append(nm)
             if os.path.isfile(f"{qmpath}/ccsdt-{nm}.npy"):
-                os.system(f"cp {qmpath}/ccsdt-{nm}.npy .")
-
                 rtotal = np.load(f"{qmpath}/ccsdt-{nm}.npy")
                 ref_energy[nm][:,-1] = rtotal
-
 
         self.nm_dimers = nm_dimers
         self.nconf = 5
@@ -841,30 +839,25 @@ polar-eps         1e-06
         n = self.molnumber
         qmpath = f"{self.datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
-        os.chdir(dimerdir)
 
         if not os.path.isdir(f"{qmpath}/clusters"):
             self.do_clusters = False
             return
-
-        os.system(f"cp {qmpath}/clusters/sapt-res-water-cluster.pickle .")
         
         res = load_pickle(f"{qmpath}/clusters/sapt-res-water-cluster.pickle")
         for nm,vals in res.items():
-            os.system(f"cp {qmpath}/clusters/{nm}.xyz .")
-        os.system(f"cp {qmpath}/clusters/water.xyz .")
-        os.system(f"cp {qmpath}/clusters/mol.xyz .")
+            copy_files(f"{qmpath}/clusters/{nm}.xyz",dimerdir)
+        copy_files(f"{qmpath}/clusters/water.xyz",dimerdir)
+        copy_files(f"{qmpath}/clusters/mol.xyz",dimerdir)
 
         self.cluster_ref = res
         self.cluster_names = list(res.keys())
         self.do_clusters = True
-        os.chdir(self.basedir)
 
     def prepare_sapt_dimers(self):
         n = self.molnumber
         qmpath = f"{self.datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
-        os.chdir(dimerdir)
 
         if not os.path.isdir(f"{qmpath}/sapt_dimers"):
             self.do_sapt_dimers = False
@@ -872,17 +865,20 @@ polar-eps         1e-06
         
         files = next(os.walk(f"{qmpath}/sapt_dimers"))[2]
         fnames = []
-        for f in files:
-            if 'arc' == f[-3:]:
-                fnames.append(f[:-4])
-                os.system(f"cp {qmpath}/sapt_dimers/{f} .")
-                os.system(f"cp {qmpath}/sapt_dimers/{f[:-4]}*.xyz .")
-        
+        for fn in files:
+            if 'arc' == fn[-3:]:
+                fnames.append(fn[:-4])
+                copy_files(f"{qmpath}/sapt_dimers/{fn}",dimerdir)
+        for sysn in fnames:
+            for fn in files:
+                if sysn in fn and 'xyz' in fn:
+                    copy_files(f"{qmpath}/sapt_dimers/{fn}",dimerdir)
+
         self.sapt_dimers = fnames
         self.sapt_dimers_ref = {}
         self.sapt_dimers_indx = {}
-        for f in fnames:
-            ref = np.load(f"{qmpath}/sapt_dimers/{f}.npy")
+        for fn in fnames:
+            ref = np.load(f"{qmpath}/sapt_dimers/{fn}.npy")
             ndim = ref.shape[0]
 
             ref1 = ref[:,-1]
@@ -895,17 +891,15 @@ polar-eps         1e-06
                     cut = 20
             mask = ref1 < cut
             indx = np.arange(ndim)[mask]
-            self.sapt_dimers_ref[f] = ref[indx].copy()
-            self.sapt_dimers_indx[f] = indx.copy()
+            self.sapt_dimers_ref[fn] = ref[indx].copy()
+            self.sapt_dimers_indx[fn] = indx.copy()
 
         self.do_sapt_dimers = True
-        os.chdir(self.basedir)
 
     def prepare_ccsdt_dimers(self):
         n = self.molnumber
         qmpath = f"{self.datadir}/qm-calc/{n}"
         dimerdir = f"{self.basedir}/{n}/dimer"
-        os.chdir(dimerdir)
 
         if not os.path.isdir(f"{qmpath}/ccsdt_dimers"):
             self.do_ccsdt_dimers = False
@@ -913,16 +907,16 @@ polar-eps         1e-06
         
         files = next(os.walk(f"{qmpath}/ccsdt_dimers"))[2]
         fnames = []
-        for f in files:
-            if 'arc' == f[-3:]:
-                fnames.append(f[:-4])
-                os.system(f"cp {qmpath}/ccsdt_dimers/{f} .")
+        for fn in files:
+            if 'arc' == fn[-3:]:
+                fnames.append(fn[:-4])
+                copy_files(f"{qmpath}/ccsdt_dimers/{fn}",dimerdir)
         
         self.ccsdt_dimers = fnames
         self.ccsdt_dimers_ref = {}
         self.ccsdt_dimers_indx = {}
-        for f in fnames:
-            ref = np.load(f"{qmpath}/ccsdt_dimers/{f}.npy")
+        for fn in fnames:
+            ref = np.load(f"{qmpath}/ccsdt_dimers/{fn}.npy")
             ndim = ref.shape[0]
 
             cut = 2*np.std(ref)
@@ -934,8 +928,8 @@ polar-eps         1e-06
                     cut = 20
             mask = ref < cut
             indx = np.arange(ndim)[mask]
-            self.ccsdt_dimers_ref[f] = ref[indx].copy()
-            self.ccsdt_dimers_indx[f] = indx.copy()
+            self.ccsdt_dimers_ref[fn] = ref[indx].copy()
+            self.ccsdt_dimers_indx[fn] = indx.copy()
 
         self.do_ccsdt_dimers = True
         os.chdir(self.basedir)
