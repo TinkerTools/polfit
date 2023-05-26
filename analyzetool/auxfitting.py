@@ -85,10 +85,7 @@ def copy_files(src,destdir):
         destnm = destdir
     if os.path.isfile(src):
         if os.path.isfile(destnm):
-            if os.path.samefile(src,destnm):
-                return
-            else:
-                os.remove(destnm)
+            os.remove(destnm)
     else:
         return
     
