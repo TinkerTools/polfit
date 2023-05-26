@@ -1825,12 +1825,12 @@ polar-eps         1e-06
                     perror = self.log[i-1]['error']
                     if perror.shape[0] == totalerror.shape[0] or optimizer == 'genetic':
                         self.log[i] = allres
-                        save_pickle(self.log, self.dumpfile)
+                        save_pickle(self.log, f"{self.dumpfile}_temp")
 
                         return errors
                 else:  
                     self.log[i] = allres
-                    save_pickle(self.log, self.dumpfile)
+                    save_pickle(self.log, f"{self.dumpfile}_temp")
                     return errors      
 
         allres = {'params': new_params,
