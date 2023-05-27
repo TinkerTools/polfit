@@ -143,6 +143,7 @@ class Auxfit(object):
         self.equil = 200
         self.molpol = 0
         self.progfile = f'{base_dir}/{molnumber}/progress.pickle'
+        self.rungas = True
 
         global i 
         i = 0
@@ -1640,7 +1641,6 @@ polar-eps         1e-06
             _run.communicate()
 
             try:
-                job_pid1 = os.getpgid(_run.pid)
                 _run.kill()
             except:
                 None
@@ -1676,15 +1676,15 @@ polar-eps         1e-06
         cmd_liq = f"dynamic liquid {nsteps} 2 1 4 {temperature:.2f} 1.0 n"                                                                  
         cmd_gas = f"dynamic gas {nsteps_gas} 0.1 1 2 {temperature:.2f}"
 
-        res = self.calltinker([cmd_liq,cmd_gas], nsteps)
+        if self.rungas:
+            res = self.calltinker([cmd_liq,cmd_gas], nsteps)
+        else:
+            res = self.calltinker(cmd_liq, nsteps)
+            os.system(f"cp {refliq}/gas.log . 2>/dev/null")
 
         error = False
-        if res and not os.path.isfile('liquid.log'):
-            res = self.calltinker([cmd_liq,cmd_gas], nsteps)
-        elif res and os.path.isfile('liquid.log'):
+        if not os.path.isfile('liquid.log'):
             error = True
-        else:
-            None
         
         os.system(f"{self.tinkerpath}/analyze liquid.xyz g > analysis.log")
         if os.path.isfile("liquid.dcd"):
