@@ -194,8 +194,8 @@ class Auxfit(object):
             if dest == liqdir:
                 copy_files(f"{xyzpath}/monomer.xyz",f"{dest}/gas.xyz")
                 copy_files(f"{xyzpath}/monomer.key",f"{dest}/gas.key")
-                copy_files(f"{xyzpath}/liquid.xyz",f"{dest}/gas.key")
-                copy_files(f"{xyzpath}/liquid.key",f"{dest}/gas.key")
+                copy_files(f"{xyzpath}/liquid.xyz",dest)
+                copy_files(f"{xyzpath}/liquid.key",dest)
             if dest == poldir:
                 copy_files(f"{molpol}/monomer.xyz",dest)
             if dest == dimerdir:
@@ -203,15 +203,7 @@ class Auxfit(object):
             if dest == potdir:
                 copy_files(f"{elecpot}/monomer.pot",dest)
                 copy_files(f"{elecpot}/monomer.xyz",dest)
-        
-        self.gasdcd = ""
-        if os.path.isdir(f"{self.smallmoldir}/init_simulations-2/{n}"):
-            os.system(f"ln -s {self.smallmoldir}/init_simulations-2/{n} {refliqdir}")
-
-            gasdcd = f"{self.smallmoldir}/init_simulations-2/{n}/gas.arc"
-            if os.path.isfile(gasdcd):
-                self.gasdcd = gasdcd
-        
+                
         self.Natoms = count_atoms(f"{xyzpath}/monomer.xyz")
         self.Natomsbox = count_atoms(f"{xyzpath}/liquid.xyz")
         self.Nmol = int(self.Natomsbox/self.Natoms)
@@ -232,6 +224,7 @@ class Auxfit(object):
         self.dumpfile = f"{dumpdir}/log-{st}.pickle"
         self.dumpresult = f"{dumpdir}/result-{st}.pickle"
 
+        self.gasdcd = ""
         gas = f"{refliqdir}/gas.dcd"
         if os.path.isfile(gas):
             self.gasdcd = gas
