@@ -162,7 +162,8 @@ def analyze_arc(workdir,nm_dimers,keyfile="tinker.key",intermolecular=True,tkpat
             final_energy = eng_cpm
         
         all_componts.append(final_energy)
-        allinter.append(energies['Intermolecular'])
+        if not nointer:
+            allinter.append(energies['Intermolecular'])
     
     os.chdir(currdir)
     if intermolecular:
