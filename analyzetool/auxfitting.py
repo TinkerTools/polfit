@@ -1521,11 +1521,10 @@ polar-eps         1e-06
                 commd2 = ' '.join(csplit2) + ' > gas.log 2>&1'
                 gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
             else:
-                commd2 = 'tail gas.xyz'
-                gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
+                commd2 = 'tail gas.xyz 2>/dev/null'
+                gas_run = subprocess.Popen("exec "+commd2, shell=True, 
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,universal_newlines='expand_cr')
             
-            job_pid2 = os.getpgid(gas_run.pid)
-
             simlen = (nsteps*2/1000)
             init_time = time.time()
 
