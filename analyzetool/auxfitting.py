@@ -1671,8 +1671,9 @@ polar-eps         1e-06
         if self.rungas:
             res = self.calltinker([cmd_liq,cmd_gas], nsteps)
         else:
-            res = self.calltinker(cmd_liq, nsteps)
             os.system(f"cp {refliq}/gas.log . 2>/dev/null")
+            res = self.calltinker(cmd_liq, nsteps)
+            
 
         error = False
         if not os.path.isfile('liquid.log'):
