@@ -1515,15 +1515,13 @@ polar-eps         1e-06
             job_pid1 = os.getpgid(liqproc.pid)
             filename = os.path.abspath("./liquid.log")
 
+            rungas = False
             if csplit2 != None:
                 prog = os.path.join(tinkerpath, csplit2[0])
                 csplit2[0] = prog
                 commd2 = ' '.join(csplit2) + ' > gas.log 2>&1'
                 gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
-            else:
-                commd2 = 'tail gas.xyz 2>/dev/null'
-                gas_run = subprocess.Popen("exec "+commd2, shell=True, 
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,universal_newlines='expand_cr')
+                rungas = True
             
             simlen = (nsteps*2/1000)
             init_time = time.time()
@@ -1593,22 +1591,23 @@ polar-eps         1e-06
             else:
                 liqproc.kill()
 
-            filename = os.path.abspath("./gas.log")
-            ngasfrm = get_last_frame(filename)
+            if rungas:
+                filename = os.path.abspath("./gas.log")
+                ngasfrm = get_last_frame(filename)
 
-            if ngasfrm >= 6:
-                gas_run.kill()
-            else:
-                init_time = time.time() 
-                time.sleep(5)
-                while ngasfrm < 6:
-                    diff_timer = time.time() - init_time
-                    
-                    if diff_timer > timeout:
-                        gas_run.kill()
-                    
+                if ngasfrm >= 6:
+                    gas_run.kill()
+                else:
+                    init_time = time.time() 
                     time.sleep(5)
-                    ngasfrm = get_last_frame(filename)
+                    while ngasfrm < 6:
+                        diff_timer = time.time() - init_time
+                        
+                        if diff_timer > timeout:
+                            gas_run.kill()
+                        
+                        time.sleep(5)
+                        ngasfrm = get_last_frame(filename)
         else:
             if 'liquid' in csplit[1]:
                 if 'analyze' in csplit[0]:
@@ -1714,9 +1713,10 @@ polar-eps         1e-06
         res = np.zeros(nvals)-100
         if not error:
             ngas = get_last_frame(f"{liqdir}/gas.log")
-
-            gaslog='gas.log'
-            if ngas < halfgas and len(self.gasdcd) > 0:
+            if ngas > 1:
+                gaslog='gas.log'
+            
+            if len(self.gasdcd) > 0 and not self.rungas:
                 gasdcd = self.gasdcd
                 gasxyz = self.gasdcd[:-4]+'.xyz'
                 cmd = f"analyze {gasdcd} {gasxyz} e -k gas.key > gas2.log"
@@ -1725,9 +1725,7 @@ polar-eps         1e-06
                 ngas2 = get_last_frame(f"{liqdir}/gas2.log")
                 if ngas2 > 100:
                     gaslog = 'gas2.log'
-                else:
-                    gaslog = None
-
+                
             liquid = liqAnalyze.Liquid(liqdir,'liquid.xyz',self.Natoms,temperature,equil,
                             logfile='liquid.log',analyzelog='analysis.log',gaslog=gaslog,molpol=self.molpol)
          
