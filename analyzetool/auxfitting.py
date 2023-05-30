@@ -1520,6 +1520,10 @@ polar-eps         1e-06
                 prog = os.path.join(tinkerpath, csplit2[0])
                 csplit2[0] = prog
                 commd2 = ' '.join(csplit2) + ' > gas.log 2>&1'
+
+                nsteps_gas = int(csplit2[2])
+                dt_gas = float(csplit2[3])
+                simtime_gas = (1e-6)*nsteps_gas*dt_gas
                 gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
                 rungas = True
             
@@ -1595,19 +1599,17 @@ polar-eps         1e-06
                 filename = os.path.abspath("./gas.log")
                 ngasfrm = get_last_frame(filename)
 
-                if ngasfrm >= 6:
-                    gas_run.kill()
-                else:
-                    init_time = time.time() 
+                init_time = time.time() 
+                while ngasfrm < simtime_gas:
                     time.sleep(5)
-                    while ngasfrm < 6:
-                        diff_timer = time.time() - init_time
-                        
-                        if diff_timer > timeout:
-                            gas_run.kill()
-                        
-                        time.sleep(5)
-                        ngasfrm = get_last_frame(filename)
+                    diff_timer = time.time() - init_time
+                    
+                    if diff_timer > timeout:
+                        gas_run.kill()
+                    
+                    time.sleep(5)
+                    ngasfrm = get_last_frame(filename)
+        
         else:
             if 'liquid' in csplit[1]:
                 if 'analyze' in csplit[0]:
