@@ -2,6 +2,7 @@ from ast import Delete
 import numpy as np
 import pickle
 import os
+from . import prmedit
 
 avogadro=6.02214076e23
 lightspd=2.99792458e-2
@@ -105,6 +106,35 @@ def count_atoms(fn):
     c = int(dt.split()[0])
 
     return c   
+
+def compute_center_of_mass(fname="dimer.arc",natms=[]):
+    """Give a dimer xyz or arc, returns center of mass of each monomer and the structure center of mass"""
+    
+    arcf = ARC(fname)
+    arcf.read_arc_file()
+    coords = arcf.arcxyz
+    
+    if len(natms) == 0:
+        natm = coords[0].shape[0]
+        n1 = int(natm/2)
+        n2 = n1
+    else:
+        n1 = natms[0]
+        n2 = natms[1]
+    
+    xyz0,atommap = prmedit.read_xyz_file(fname)
+    masses = np.array([mw_elements[a[1]] for a in atommap])
+    
+    coords = arcf.arcxyz
+    cm = np.zeros((coords.shape))
+    for i in range(3):
+        cm[:,:,i] += coords[:,:,i] * masses
+    
+    cm1 = cm[:,:n1,:].sum(axis=1)/masses[:n1].sum()
+    cm2 = cm[:,n1:,:].sum(axis=1)/masses[n1:].sum()
+    fcm = cm.sum(axis=1)/masses.sum()
+    
+    return cm1,cm2,fcm
 
 def num_molecules(box_size,mw,dens):
     """Needs (box_size (Angstroms),molecular_weight ((g/mol),density (g/ml))
