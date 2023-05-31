@@ -1246,6 +1246,11 @@ polar-eps         1e-06
                 ref = ref_energy[nm]
                 
                 err = (res1 - ref)
+                if 'DESRES' in nm:
+                    err[:,1] = np.zeros(ndim)
+                    err[:,2] = np.zeros(ndim)
+                    err[:,3] = np.zeros(ndim)
+                            
             errors.append(err)
             all_componts.append(res1)
         
