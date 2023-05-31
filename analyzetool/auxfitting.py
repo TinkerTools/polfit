@@ -874,12 +874,12 @@ polar-eps         1e-06
 
             ref1 = ref[:,-1]
             cut = 2*np.std(ref1)
-            if cut > 20:
-                cut = 20
+            if cut > 8:
+                cut = 8
             elif (cut-ref1.max()) < 5:
                 cut = ref1.max()+1
-                if ref1.max() > 20:
-                    cut = 20
+                if ref1.max() > 8:
+                    cut = 8
             mask = ref1 < cut
             indx = np.arange(ndim)[mask]
             self.sapt_dimers_ref[fn] = ref[indx].copy()
@@ -911,12 +911,12 @@ polar-eps         1e-06
             ndim = ref.shape[0]
 
             cut = 2*np.std(ref)
-            if cut > 20:
-                cut = 20
+            if cut > 8:
+                cut = 8
             elif (cut-ref.max()) < 5:
                 cut = ref.max()+1
-                if ref.max() > 20:
-                    cut = 20
+                if ref.max() > 8:
+                    cut = 8
             mask = ref < cut
             indx = np.arange(ndim)[mask]
             self.ccsdt_dimers_ref[fn] = ref[indx].copy()
@@ -1331,7 +1331,7 @@ polar-eps         1e-06
             testerr = np.sort(testerr)[::-1]
             ndim = int(ndim/2)
 
-            if ndim > 10:
+            if ndim > 8:
                 ndim = 10
             err = testerr.mean()+testerr[:ndim].mean()
             errors.append(err)
@@ -1927,7 +1927,7 @@ polar-eps         1e-06
         if self.do_sapt_dimers or self.computeall:
             calc_components, errors = self.compute_dimer_arc()   
             ndim = int(errors.shape[0]/2)
-            if ndim > 10:
+            if ndim > 8:
                 ndim = 10 
             
             errloc = [] 
