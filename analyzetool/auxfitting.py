@@ -885,6 +885,17 @@ polar-eps         1e-06
             self.sapt_dimers_ref[fn] = ref[indx].copy()
             self.sapt_dimers_indx[fn] = indx.copy()
 
+        # Exclude fitting to DESRES sapt data if you have other data
+        isDES = 0
+        for nm in fnames:
+            if 'DESRES' in nm:
+                isDES += 1
+        
+        include_DES = False
+        if isDES == len(fnames):
+            include_DES = True
+
+        self.sapt_dimers_includeDES = include_DES
         self.do_sapt_dimers = True
 
     def prepare_ccsdt_dimers(self):
@@ -1134,7 +1145,7 @@ polar-eps         1e-06
             else:
                 return np.array(all_componts)
 
-    def compute_dimer_energ(self):
+    def compute_water_dimers(self):
         n = self.molnumber
         nm_dimers = self.nm_dimers
         dimerdir = f"{self.basedir}/{n}/dimer"
@@ -1214,14 +1225,14 @@ polar-eps         1e-06
         
         return np.array(all_componts),np.array(errors)
     
-    def compute_dimer_arc(self):  
+    def compute_sapt_dimers(self):  
         n = self.molnumber
         dimerdir = f"{self.basedir}/{n}/dimer"      
         os.chdir(dimerdir)
 
         nm_dimers = self.sapt_dimers
         ref_energy = self.sapt_dimers_ref
-        
+
         all_componts = []
         errors = []
         for k,nm in enumerate(nm_dimers):
@@ -1250,8 +1261,11 @@ polar-eps         1e-06
                     err[:,1] = np.zeros(ndim)
                     err[:,2] = np.zeros(ndim)
                     err[:,3] = np.zeros(ndim)
-                            
-            errors.append(err)
+
+                    if self.sapt_dimers_includeDES:
+                        errors.append(err)
+                else:
+                    errors.append(err)
             all_componts.append(res1)
         
         os.chdir(self.basedir)
@@ -1869,7 +1883,7 @@ polar-eps         1e-06
         sys.stdout.flush()
         errlist = []
         if self.do_dimers or self.computeall:
-            calc_components, errors = self.compute_dimer_energ()
+            calc_components, errors = self.compute_water_dimers()
             if 'chgpen' in termfit or 'multipole' in termfit:
                 err = np.abs(errors)[:,0].sum()
                 errlist.append(err)
@@ -1930,7 +1944,7 @@ polar-eps         1e-06
 
         sys.stdout.flush()
         if self.do_sapt_dimers or self.computeall:
-            calc_components, errors = self.compute_dimer_arc()   
+            calc_components, errors = self.compute_sapt_dimers()   
             ndim = int(errors.shape[0]/2)
             if ndim > 8:
                 ndim = 10 
@@ -1939,13 +1953,15 @@ polar-eps         1e-06
             if 'chgpen' in termfit or 'multipole' in termfit:
                 testerr = np.abs(errors)[:,0]
                 testerr = np.sort(testerr)[::-1]
-                err = testerr.mean()+testerr[:ndim].mean()
+                # err = testerr.mean()+testerr[:ndim].mean()
+                err = testerr.sum()
                 errlist.append(err)
                 errloc.append(err)
             if 'dispersion' in termfit:
                 testerr = np.abs(errors)[:,3]
                 testerr = np.sort(testerr)[::-1]
-                err = testerr.mean()+testerr[:ndim].mean()
+                # err = testerr.mean()+testerr[:ndim].mean()
+                err = testerr.sum()
                 errlist.append(err)
                 errloc.append(err)
             if 'repulsion' in termfit:
@@ -1957,7 +1973,8 @@ polar-eps         1e-06
             if 'polarize' in termfit or 'chgtrn' in termfit:
                 testerr = np.abs(errors)[:,2]
                 testerr = np.sort(testerr)[::-1]
-                err = testerr.mean()+testerr[:ndim].mean()
+                # err = testerr.mean()+testerr[:ndim].mean()
+                err = testerr.sum()
                 errlist.append(err)
                 errloc.append(err)
 
