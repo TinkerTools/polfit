@@ -126,6 +126,12 @@ def compute_center_of_mass(fname="dimer.arc",natms=[]):
     masses = np.array([mw_elements[a[1]] for a in atommap])
     
     coords = arcf.arcxyz
+
+    if len(coords) == 0 and len(xyz0) != 0:
+        coords = np.reshape(xyz0,[1,xyz0.shape[0],3])
+    else:
+        return 0,0,0
+    
     cm = np.zeros((coords.shape))
     for i in range(3):
         cm[:,:,i] += coords[:,:,i] * masses
