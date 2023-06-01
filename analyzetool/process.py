@@ -379,8 +379,11 @@ class ARC:
         
         self.atom_map = np.array(self.atom_map)
         self.xyz = np.array(xyz_cords)
-        self.lattice.append(box_lattice)
-        self.lattice = np.array(self.lattice)
+        if self.pbc:
+            self.lattice.append(box_lattice)
+            self.lattice = np.array(self.lattice)
+        else:
+            self.lattice = []
             
     def compute_volume(self):        
         self.volume = []
