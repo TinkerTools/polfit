@@ -886,16 +886,17 @@ polar-eps         1e-06
             self.sapt_dimers_indx[fn] = indx.copy()
 
         # Exclude fitting to DESRES sapt data if you have other data
-        isDES = 0
+        include_DESRES = {}
         for nm in fnames:
             if 'DESRES' in nm:
-                isDES += 1
-        
-        include_DES = False
-        if isDES == len(fnames):
-            include_DES = True
+                include_DESRES[nm] = False          
+                if'water' not in nm:
+                    include_DESRES[nm] = True
+                else:
+                    if not self.do_dimers:
+                        include_DESRES[nm] = True
 
-        self.sapt_dimers_includeDES = include_DES
+        self.sapt_dimers_include_DESRES = include_DESRES
         self.do_sapt_dimers = True
 
     def prepare_ccsdt_dimers(self):
@@ -917,6 +918,7 @@ polar-eps         1e-06
         self.ccsdt_dimers = fnames
         self.ccsdt_dimers_ref = {}
         self.ccsdt_dimers_indx = {}
+        self.ccsdt_dimers_weights = {}
         for fn in fnames:
             ref = np.load(f"{qmpath}/ccsdt_dimers/{fn}.npy")
             ndim = ref.shape[0]
@@ -932,6 +934,20 @@ polar-eps         1e-06
             indx = np.arange(ndim)[mask]
             self.ccsdt_dimers_ref[fn] = ref[indx].copy()
             self.ccsdt_dimers_indx[fn] = indx.copy()
+
+            nvals = self.ccsdt_dimers_ref[fn].shape[0]
+            self.ccsdt_dimers_weights[fn] = np.ones(nvals)
+            if 'DESRES' not in fn:
+                eref = self.ccsdt_dimers_ref[fn]
+                emin = np.min(eref)
+                ixx = np.where(emin==eref)[0][0]
+                if ixx != 0 and ixx != nvals-1:
+                    weig = np.zeros(nvals)
+                    ns = int(ixx/2)
+                    weig[ns:ixx+ns] += 2
+                    weig[:ns] += 0.1
+                    weig[ixx+ns:] += 0.5
+                    self.ccsdt_dimers_weights[fn] = weig
 
         self.do_ccsdt_dimers = True
         os.chdir(self.basedir)
@@ -1262,7 +1278,7 @@ polar-eps         1e-06
                     err[:,2] = np.zeros(ndim)
                     err[:,3] = np.zeros(ndim)
 
-                    if self.sapt_dimers_includeDES:
+                    if self.sapt_dimers_include_DESRES[nm]:
                         errors.append(err)
                 else:
                     errors.append(err)
@@ -1343,18 +1359,26 @@ polar-eps         1e-06
             if res1.sum() > 1e5 or len(res1) != len(ref):
                 res1 = np.zeros(ndim)+100
                 err = np.zeros(ndim)+1e6
+
+                errors.append(err)
+                all_componts.append(res1)
             else:
                 err = np.abs(res1 - ref)
             
-            testerr = np.abs(err)
-            testerr = np.sort(testerr)[::-1]
-            ndim = int(ndim/2)
+                testerr = np.abs(err)
+                testerr = np.sort(testerr)[::-1]
+                ndim = int(ndim/2)
 
-            if ndim > 8:
-                ndim = 10
-            err = testerr.mean()+testerr[:ndim].mean()
-            errors.append(err)
-            all_componts.append(res1)
+                if ndim > 10:
+                    ndim = 10
+                
+                if 'DESRES' in nm:
+                    err1 = testerr.mean()+testerr[:ndim].mean()
+                else:
+                    err *= self.ccsdt_dimers_weights[nm]
+                    err1 = np.abs(err).sum()
+                errors.append(err1)
+                all_componts.append(res1)
         
         os.chdir(self.basedir)
         if len(nm_dimers) == 1:
@@ -1946,7 +1970,7 @@ polar-eps         1e-06
         if self.do_sapt_dimers or self.computeall:
             calc_components, errors = self.compute_sapt_dimers()   
             ndim = int(errors.shape[0]/2)
-            if ndim > 8:
+            if ndim > 10:
                 ndim = 10 
             
             errloc = [] 
