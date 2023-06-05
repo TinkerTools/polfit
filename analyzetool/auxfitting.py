@@ -212,7 +212,7 @@ class Auxfit(object):
         self.refmolpol = np.load(f"{molpol}/{n}-poleigen.npy")
         self.refmolpol *= elec_pol_A3
 
-        if os.path.isfile(f"{self.datadir}/database-info/org_liq_list.pickle") and n < 164:
+        if os.path.isfile(f"{self.datadir}/database-info/org_liq_list.pickle") and n < 166:
             self.molinfo = load_pickle(f"{self.datadir}/database-info/org_liq_list.pickle")
             self.liquid_fitproperties()
         else:
