@@ -1308,7 +1308,7 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
     else:
         return newfiles
     
-def read_xyz_file(xyzfn):
+def read_xyz_file(xyzfn,returnfile=False):
     if isinstance(xyzfn,list):
         thefile = xyzfn
     else:
@@ -1357,8 +1357,12 @@ def read_xyz_file(xyzfn):
     if len(tinkertypes) > 0:
         info = list(zip(tinkertypes,atommap))
 
+        if returnfile:
+            return coords,info,thefile
         return coords,info
     else:
+        if returnfile:
+            return coords,np.array(atommap),thefile
         return coords,np.array(atommap)
     
 def number_of_frames(xyzfn):
@@ -1549,3 +1553,32 @@ def rawxyz_txyz_notypes(xyzfn,fnout="",tinkerpath="~/tinker",xyztitle='XYZ coord
             outfile.write(keyin)
     else:
         return xyzfinal
+
+def write_rawxyz(xyzfn,writeout=True,fnout="",newcoords=[],xyztitle=''):
+    """Use typeout txyz for tinker xyz"""
+    coords,atommap,thefile = read_xyz_file(xyzfn,True)
+
+    natms = coords.shape[0]
+
+    newxyz = f"{natms}\n"
+    if len(xyztitle) == 0:
+        newxyz += "".join(thefile[1:2])
+    else:
+        newxyz += xyztitle.strip('\n') + '\n'
+    
+    for k,s in enumerate(coords):
+        try:
+            el = atommap[k][1]
+        except:
+            el = atommap[k]
+        
+        if len(newcoords) > 0:
+            s = newcoords[k]   
+                        
+        newxyz += f"{el:2s}  {s[0]:12.6f} {s[1]:12.6f} {s[2]:12.6f} \n"
+        
+    if len(fnout) > 0:
+        with open(fnout,'w') as outfile:
+            outfile.write("".join(newxyz))  
+    else:
+        return newxyz
