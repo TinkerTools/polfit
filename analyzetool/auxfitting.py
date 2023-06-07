@@ -984,9 +984,15 @@ polar-eps         1e-06
         else:
             pol2 = pol.copy()
 
-        self.molpol = pol2.copy()
-        pol2 = np.abs(pol2)
-        rms = np.abs(pol2-ref)
+        abspol = np.abs(pol2)
+        rms = np.abs(abspol-ref)
+        avgpol = np.abs(ref.mean() - abspol.mean())
+        for ii,cmp in enumerate(ref):
+            if np.abs(cmp) < 1e-5:
+                if rms[ii] > 3:
+                    rms[ii] = avgpol
+
+        self.molpol = pol2.copy()        
         return rms
     
     def get_potfit(self):
