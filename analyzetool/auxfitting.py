@@ -970,7 +970,6 @@ polar-eps         1e-06
         line = output[-4].split()
         try:
             pol = np.array([float(a) for a in line])
-            self.molpol = pol.mean()
         except:
             pol = np.array([1e4,1e4,1e4])
 
@@ -1770,10 +1769,11 @@ polar-eps         1e-06
                 ngas2 = get_last_frame(f"{liqdir}/gas2.log")
                 if ngas2 > 100:
                     gaslog = 'gas2.log'
-                
+
             liquid = liqAnalyze.Liquid(liqdir,'liquid.xyz',self.Natoms,temperature,equil,
-                            logfile='liquid.log',analyzelog='analysis.log',gaslog=gaslog,molpol=self.molpol)
-         
+                            logfile='liquid.log',analyzelog='analysis.log',gaslog=gaslog,molpol=self.molpol.mean())
+
+            liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
             if not liquid.error:
                 Rho_avg = 1000*liquid.avgRho
                 Hvap_avg = 4.184*liquid.HV
