@@ -212,8 +212,8 @@ class Auxfit(object):
         self.refmolpol = np.load(f"{molpol}/{n}-poleigen.npy")
         self.refmolpol *= elec_pol_A3
 
-        if os.path.isfile(f"{self.datadir}/database-info/org_liq_list.pickle") and n < 166:
-            self.molinfo = load_pickle(f"{self.datadir}/database-info/org_liq_list.pickle")
+        if os.path.isfile(f"{self.datadir}/database-info/molinfo_dict.pickle"):
+            self.molinfo = load_pickle(f"{self.datadir}/database-info/molinfo_dict.pickle")
             self.liquid_fitproperties()
         else:
             self.molinfo = {}
@@ -1388,32 +1388,32 @@ polar-eps         1e-06
         n = self.molnumber
 
         try:
-            info = self.molinfo[n-1]
+            info = self.molinfo[n]
         except:
-            info = [278,800.0]
+            info = [273.15,800.0]
             liqprop = ["Temp", "Dens"]
             self.liquidref = [info,liqprop]
             return
         nsteps = self.nsteps
         simlen = (nsteps*2/1000)
 
-        refvalues = info[1:3]
+        refvalues = info[:2]
         liqprop = ["Temp", "Dens"]
-        if info[3] != -1:
-            refvalues.append(info[3])
+        if info[2] != -1:
+            refvalues.append(info[2])
             liqprop.append("HV")
         
         # n Temp Dens HV Diel KT alphaT SurfTens
         if simlen >= 2000:
-            if info[4] != -1:
-                refvalues.append(info[4])
+            if info[3] != -1:
+                refvalues.append(info[3])
                 liqprop.append("Diel")
         if simlen >= 2500:
+            if info[4] != -1:
+                refvalues.append(info[4])
+                liqprop.append("KT")
             if info[5] != -1:
                 refvalues.append(info[5])
-                liqprop.append("KT")
-            if info[6] != -1:
-                refvalues.append(info[6])
                 liqprop.append("alphaT")
         
         self.liquidref = [refvalues,liqprop]
@@ -1773,7 +1773,8 @@ polar-eps         1e-06
             liquid = liqAnalyze.Liquid(liqdir,'liquid.xyz',self.Natoms,temperature,equil,
                             logfile='liquid.log',analyzelog='analysis.log',gaslog=gaslog,molpol=self.molpol.mean())
 
-            liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
+            if nsteps > 100000:
+                liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
             if not liquid.error:
                 Rho_avg = 1000*liquid.avgRho
                 Hvap_avg = 4.184*liquid.HV
@@ -1892,7 +1893,7 @@ polar-eps         1e-06
         os.chdir(path_mol)
         self.make_key(new_params,keytype="both")
         rms = self.get_potfit()
-        
+
         err_pol = self.get_polarize()
         ## potential fit
         poterror = 0.0
@@ -2069,12 +2070,8 @@ polar-eps         1e-06
         if self.testliq and not self.fitliq:
             if totalerror.sum() > 300:
                 proxyerr = totalerror[:8].sum()
-                if nvals == 1:
-                    totalerror = np.append(totalerror,proxyerr/5)
-                elif nvals == 2:
-                    totalerror = np.append(totalerror,[proxyerr/5,proxyerr/3])
-                else:
-                    np.append(totalerror,np.zeros(nvals)+proxyerr/5)
+                totalerror = np.append(totalerror,proxyerr/5)
+                
                 err = np.zeros(nvals)+1e6
                 res = np.zeros(nvals)-100
             else:
@@ -2084,7 +2081,11 @@ polar-eps         1e-06
                 else:
                     err = np.zeros(nvals)+1e6
                     res = np.zeros(nvals)-100    
-                totalerror = np.append(totalerror,err*1e-3)
+                
+                if res[0] != -100:
+                    totalerror = np.append(totalerror,1e-3)
+                else:
+                    totalerror = np.append(totalerror,1e6)
 
             allres['liqres'] = [res, err]
             dumpres['liqres'] = [res, err]
