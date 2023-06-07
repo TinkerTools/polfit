@@ -1891,10 +1891,12 @@ polar-eps         1e-06
 
         os.chdir(path_mol)
         self.make_key(new_params,keytype="both")
+        rms = self.get_potfit()
+        
+        err_pol = self.get_polarize()
         ## potential fit
         poterror = 0.0
         if 'chgpen' in termfit or 'multipole' in termfit:
-            rms = self.get_potfit()
             refrms = self.initpotrms
 
             # if rms > refrms+0.3:
@@ -2015,8 +2017,6 @@ polar-eps         1e-06
         sys.stdout.flush()
         poltest = 'chgpen' in termfit or 'multipole' in termfit or 'polarize' in termfit
         if poltest or self.computeall:
-            err_pol = self.get_polarize()
-
             allres['polarize'] = err_pol
             dumpres['polarize'] = err_pol
 
