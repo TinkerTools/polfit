@@ -851,7 +851,6 @@ polar-eps         1e-06
         dimerdir = f"{self.basedir}/{n}/dimer"
 
         if not os.path.isdir(f"{qmpath}/sapt_dimers"):
-            self.do_sapt_dimers = False
             return
         
         files = next(os.walk(f"{qmpath}/sapt_dimers"))[2]
@@ -887,17 +886,24 @@ polar-eps         1e-06
 
         # Exclude fitting to DESRES sapt data if you have other data
         include_DESRES = {}
+        total_included = 0
         for nm in fnames:
             if 'DESRES' in nm:
                 include_DESRES[nm] = False          
                 if'water' not in nm:
                     include_DESRES[nm] = True
+                    total_included += 1
                 else:
                     if not self.do_dimers:
                         include_DESRES[nm] = True
+                        total_included += 1
+            else:
+                total_included += 1
 
         self.sapt_dimers_include_DESRES = include_DESRES
-        self.do_sapt_dimers = True
+
+        if total_included:
+            self.do_sapt_dimers = True
 
     def prepare_ccsdt_dimers(self):
         n = self.molnumber
