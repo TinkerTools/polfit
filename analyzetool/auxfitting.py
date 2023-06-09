@@ -889,7 +889,8 @@ polar-eps         1e-06
         total_included = 0
         for nm in fnames:
             if 'DESRES' in nm:
-                include_DESRES[nm] = False          
+                include_DESRES[nm] = False  
+                continue        
                 if'water' not in nm:
                     include_DESRES[nm] = True
                     total_included += 1
