@@ -42,16 +42,24 @@ class GasLog(object):
                 if len(s) < 2:
                     continue
                 if 'Current Potential' in line or 'Potential Energy' in line:
-                    val, err = convert_float(s[2])
-                    edyn.append(val)
-                    error.append(err)
+                    try:
+                        val, err = convert_float(s[2])
+                        edyn.append(val)
+                        error.append(err)
+                    except:
+                        None
                 if 'Current Kinetic' in line or 'Kinetic Energy' in line:
-                    val, err = convert_float(s[2])
-                    kdyn.append(val)
+                    try:
+                        val, err = convert_float(s[2])
+                        kdyn.append(val)
+                    except:
+                        None
                 if 'Total Potential Energy : ' in line:
-                    val, err = convert_float(s[4])
-                    eanl.append(val)
-
+                    try:
+                        val, err = convert_float(s[4])
+                        eanl.append(val)
+                    except:
+                        None
         if len(eanl) != 0:
             self.PE = np.array(eanl)
             halfp = int(self.PE.shape[0]/2)
