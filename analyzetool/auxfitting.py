@@ -144,6 +144,8 @@ class Auxfit(object):
         self.molpol = 0
         self.progfile = f'{base_dir}/{molnumber}/progress.pickle'
         self.rungas = True
+        self.testliq = False
+        self.fitliq = False
 
         global i 
         i = 0
@@ -891,6 +893,7 @@ polar-eps         1e-06
             if 'DESRES' in nm:
                 include_DESRES[nm] = False  
                 continue        
+            ##### NEED TO CREATE TWO ARC FILES, WITH MOL1 AND MOL2
                 if'water' not in nm:
                     include_DESRES[nm] = True
                     total_included += 1
