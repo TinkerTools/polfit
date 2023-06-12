@@ -2198,23 +2198,23 @@ polar-eps         1e-06
             lbounds = np.array(lbounds)
             ubounds = np.array(ubounds)
 
-            try:
-                opt = optimize.least_squares(self.optimize_prms,initprms,
-                jac='3-point',bounds=(lbounds,ubounds),f_scale=0.5,
-                diff_step=0.01,loss='soft_l1',verbose=2)
+            # try:
+            opt = optimize.least_squares(self.optimize_prms,initprms,
+            jac='3-point',bounds=(lbounds,ubounds),f_scale=0.5,
+            diff_step=0.01,loss='soft_l1',verbose=2)
 
-                print(opt.x)
-                sys.stdout.flush()
+            print(opt.x)
+            sys.stdout.flush()
 
-                ### Error at solution
-                err = opt.fun
-                final_prms = opt.x
-                errors = self.optimize_prms(final_prms)
-            except Exception as inst:
-                print(type(inst))
-                print(inst.args)
-                print(inst)
-                fail = True
+            ### Error at solution
+            err = opt.fun
+            final_prms = opt.x
+            errors = self.optimize_prms(final_prms)
+            # except Exception as inst:
+            #     print(type(inst))
+            #     print(inst.args)
+            #     print(inst)
+            #     fail = True
 
         
         ### Save permanent dumpfile
