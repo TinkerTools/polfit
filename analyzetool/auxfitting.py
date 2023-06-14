@@ -1330,14 +1330,16 @@ polar-eps         1e-06
             comps2 = self.analyze_arc(fnames[2],'tinker.key',False)
             indx = self.sapt_dimers_indx[nm]
             ndim = int(indx.shape[0])
+            res1 = np.zeros((ndim,5))
             if comps.sum() > 1e5:
-                res1 = np.zeros((ndim,5))+100
+                res1 += 100
                 err = np.zeros((ndim,5))+1e6
             else:
                 diff = comps-(comps1+comps2)
                 final_energy = np.array([diff[:,9],diff[:,7],diff[:,10]+diff[:,11], diff[:,8],diff.sum(axis=1)])
                 
-                res1 = final_energy[indx]
+                for r in range(5):
+                    res1[:,r] += final_energy[:,r][indx]
                 ref = ref_energy[nm]
                 
                 err = (res1 - ref)
