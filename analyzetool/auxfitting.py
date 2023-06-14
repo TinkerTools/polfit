@@ -1337,6 +1337,7 @@ polar-eps         1e-06
             else:
                 diff = comps-(comps1+comps2)
                 final_energy = np.array([diff[:,9],diff[:,7],diff[:,10]+diff[:,11], diff[:,8],diff.sum(axis=1)])
+                final_energy = final_energy.T
                 
                 for r in range(5):
                     res1[:,r] += final_energy[:,r][indx]
