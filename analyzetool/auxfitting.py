@@ -1652,7 +1652,7 @@ polar-eps         1e-06
             if simlen < 50:
                 timeout = 5*60
             else:
-                timeout = 2.5*simlen*3.6
+                timeout = 3.2*simlen
             last_frame = 0
             diff_timer = 0
             diff = 5
