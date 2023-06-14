@@ -1103,6 +1103,8 @@ polar-eps         1e-06
         all_componts = []
         allinter = []
         for k,nm in enumerate(fnames):
+            if os.path.isfile(f"{nm}"):
+                xyzfn = f"{nm}"
             if os.path.isfile(f"{nm}.arc"):
                 xyzfn = f"{nm}.arc"
             elif os.path.isfile(f"{nm}.xyz") and not os.path.isfile(f"{nm}.arc"):
@@ -1320,7 +1322,7 @@ polar-eps         1e-06
         all_componts = []
         errors = []
         for k,nm in enumerate(nm_dimers):
-            fnames = [f"{nm}",f"{nm}-mol1.arc",f"{nm}-mol2.arc"]
+            fnames = [f"{nm}",f"{nm}-mol1",f"{nm}-mol2"]
                         
             comps = self.analyze_arc(fnames[0],'tinker.key',False)
             comps1 = self.analyze_arc(fnames[1],'tinker.key',False)
