@@ -1666,13 +1666,21 @@ polar-eps         1e-06
             if last_frame == simlen:
                 running = False
                 sucess = True
-            
-            if not sucess and simlen < 100:
+
+            if os.path.isfile("./liquid.err"):
                 running = False
+                sucess = False
+            
+            if not sucess and running and simlen < 100:
                 time.sleep(int(sleeper/3))
                 last_frame = get_last_frame(filename)
                 if last_frame == simlen:
                     sucess = True
+                    running = False
+            
+            if os.path.isfile("./liquid.err"):
+                running = False
+                sucess = False
 
             while running:
                 new_last_frame = get_last_frame(filename)
@@ -1703,6 +1711,10 @@ polar-eps         1e-06
 
                 time.sleep(int(sleeper/2))
                 last_frame = new_last_frame
+
+                if os.path.isfile("./liquid.err"):
+                    running = False
+                    sucess = False
             
             if sucess:
                 liqproc.communicate()
