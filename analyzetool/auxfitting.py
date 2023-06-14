@@ -1777,6 +1777,7 @@ polar-eps         1e-06
                 gaslog='gas.log'
             
             if len(self.gasdcd) > 0 and not self.rungas:
+                os.system(f"rm -f gas2.log")
                 gasdcd = self.gasdcd
                 gasxyz = self.gasdcd[:-4]+'.xyz'
                 cmd = f"analyze {gasdcd} {gasxyz} e -k gas.key > gas2.log"
@@ -2137,7 +2138,7 @@ polar-eps         1e-06
 
         return errors
 
-    def fit_data(self,optimizer='genetic',fitliq=False,testliq=False):
+    def fit_data(self,optimizer='genetic',fitliq=False,testliq=False,diffstep=0.01):
         os.chdir(self.basedir)
 
         n = self.molnumber
@@ -2201,7 +2202,7 @@ polar-eps         1e-06
             # try:
             opt = optimize.least_squares(self.optimize_prms,initprms,
             jac='3-point',bounds=(lbounds,ubounds),f_scale=0.5,
-            diff_step=0.01,loss='soft_l1',verbose=2)
+            diff_step=diffstep,loss='soft_l1',verbose=2)
 
             print(opt.x)
             sys.stdout.flush()
