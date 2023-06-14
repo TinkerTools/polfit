@@ -200,6 +200,7 @@ def process_prm(prmfn):
     prmfile = f.readlines()
     f.close()
     
+    prmfile = [line for line in prmfile if line[0] != '#']
     prmfile = np.array(prmfile)
     prmfile = prmfile[prmfile != '\n']
     nstart = 0
@@ -1230,7 +1231,7 @@ def combine_xyz(xyzfiles,fnout="",newcoords=[],maptypes=None,xyztitle='molecule'
         return newxyz
     
 
-def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyztitle=''):
+def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyztitle=[]):
     test = xyzfn.split('\n')
     bname = ""
     if len(test) > 2:
@@ -1245,10 +1246,7 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
             print("XYZ file does not exist!")
             return
     
-    if len(xyztitle) > 0:
-        title = xyztitle
-    else:
-        title = " ".join(infile[0].split()[1:])
+    title = " ".join(infile[0].split()[1:])
     
     xyzfiles = []
     start = 1
@@ -1261,7 +1259,11 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
     newfiles = []
     fnames = []
     for nmol,xyzf in enumerate(xyzfiles):
-        newxyz = [f" {natms[nmol]} {title}-mol{nmol+1} \n"]
+        if len(xyztitle) > 0:
+            title=xyztitle[nmol]
+            newxyz = [f" {natms[nmol]} {title} \n"]
+        else:
+            newxyz = [f" {natms[nmol]} {title}-mol{nmol+1} \n"]
         for k,line in enumerate(xyzf):
             try:
                 s = line.split()
