@@ -1173,7 +1173,8 @@ polar-eps         1e-06
                 final_energy = eng_cpm
             
             all_componts.append(final_energy)
-            allinter.append(energies['Intermolecular'])
+            if not nointer:
+                allinter.append(energies['Intermolecular'])
         os.chdir(self.basedir)
         if intermolecular:
             if single:
