@@ -892,15 +892,17 @@ polar-eps         1e-06
         for nm in fnames:
             if 'DESRES' in nm:
                 include_DESRES[nm] = False  
-                continue        
             ##### NEED TO CREATE TWO ARC FILES, WITH MOL1 AND MOL2
-                if'water' not in nm:
+                if 'sapt' in nm:
                     include_DESRES[nm] = True
                     total_included += 1
-                else:
-                    if not self.do_dimers:
-                        include_DESRES[nm] = True
-                        total_included += 1
+                # if'water' not in nm:
+                #     include_DESRES[nm] = True
+                #     total_included += 1
+                # else:
+                #     if not self.do_dimers:
+                #         include_DESRES[nm] = True
+                #         total_included += 1
             else:
                 total_included += 1
 
