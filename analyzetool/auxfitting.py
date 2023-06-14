@@ -857,14 +857,19 @@ polar-eps         1e-06
         
         files = next(os.walk(f"{qmpath}/sapt_dimers"))[2]
         fnames = []
+        fwater_sapt = 0
         for fn in files:
-            if 'arc' == fn[-3:]:
+            if 'arc' == fn[-3:] and 'mol1' not in fn and 'mol2' not in fn:
                 fnames.append(fn[:-4])
                 copy_files(f"{qmpath}/sapt_dimers/{fn}",dimerdir)
+
+                if 'water' in fn and 'DESRES' not in fn:
+                    fwater_sapt += 1
+        
+        ext = ['-mol1.arc','-mol2.arc']
         for sysn in fnames:
-            for fn in files:
-                if sysn in fn and 'xyz' in fn:
-                    copy_files(f"{qmpath}/sapt_dimers/{fn}",dimerdir)
+            for fn in ext:
+                copy_files(f"{qmpath}/sapt_dimers/{sysn}{fn}",dimerdir)
 
         self.sapt_dimers = fnames
         self.sapt_dimers_ref = {}
@@ -892,17 +897,18 @@ polar-eps         1e-06
         for nm in fnames:
             if 'DESRES' in nm:
                 include_DESRES[nm] = False  
-            ##### NEED TO CREATE TWO ARC FILES, WITH MOL1 AND MOL2
                 if 'sapt' in nm:
                     include_DESRES[nm] = True
                     total_included += 1
-                # if'water' not in nm:
-                #     include_DESRES[nm] = True
-                #     total_included += 1
-                # else:
-                #     if not self.do_dimers:
-                #         include_DESRES[nm] = True
-                #         total_included += 1
+                    continue
+                if'water' not in nm:
+                    include_DESRES[nm] = True
+                    total_included += 1
+                else:
+                    if not fwater_sapt:
+                        include_DESRES[nm] = True
+                        total_included += 1
+                        
             else:
                 total_included += 1
 
@@ -1258,7 +1264,7 @@ polar-eps         1e-06
         
         return np.array(all_componts),np.array(errors)
     
-    def compute_sapt_dimers(self):  
+    def compute_sapt_dimers_old(self):  
         n = self.molnumber
         dimerdir = f"{self.basedir}/{n}/dimer"      
         os.chdir(dimerdir)
@@ -1286,6 +1292,48 @@ polar-eps         1e-06
                 terms3 = np.array([comps[9],comps[7],comps[10]+comps[11], comps[8],comps.sum()])
 
                 final_energy = terms1-(terms2+terms3)
+                res1 = final_energy[indx]
+                ref = ref_energy[nm]
+                
+                err = (res1 - ref)
+                if 'DESRES' in nm:
+                    err[:,1] = np.zeros(ndim)
+                    err[:,2] = np.zeros(ndim)
+                    err[:,3] = np.zeros(ndim)
+
+                    if self.sapt_dimers_include_DESRES[nm]:
+                        errors.append(err)
+                else:
+                    errors.append(err)
+            all_componts.append(res1)
+        
+        os.chdir(self.basedir)
+
+    def compute_sapt_dimers(self):  
+        n = self.molnumber
+        dimerdir = f"{self.basedir}/{n}/dimer"      
+        os.chdir(dimerdir)
+
+        nm_dimers = self.sapt_dimers
+        ref_energy = self.sapt_dimers_ref
+
+        all_componts = []
+        errors = []
+        for k,nm in enumerate(nm_dimers):
+            fnames = [f"{nm}",f"{nm}-mol1.arc",f"{nm}-mol2.arc"]
+                        
+            comps = self.analyze_arc(fnames[0],'tinker.key',False)
+            comps1 = self.analyze_arc(fnames[1],'tinker.key',False)
+            comps2 = self.analyze_arc(fnames[2],'tinker.key',False)
+            indx = self.sapt_dimers_indx[nm]
+            ndim = int(indx.shape[0])
+            if comps.sum() > 1e5:
+                res1 = np.zeros((ndim,5))+100
+                err = np.zeros((ndim,5))+1e6
+            else:
+                diff = comps-(comps1+comps2)
+                final_energy = np.array([diff[:,9],diff[:,7],diff[:,10]+diff[:,11], diff[:,8],diff.sum(axis=1)])
+                
                 res1 = final_energy[indx]
                 ref = ref_energy[nm]
                 
@@ -1928,26 +1976,26 @@ polar-eps         1e-06
         
         sys.stdout.flush()
         errlist = []
-        if self.do_dimers or self.computeall:
-            calc_components, errors = self.compute_water_dimers()
-            if 'chgpen' in termfit or 'multipole' in termfit:
-                err = np.abs(errors)[:,0].sum()
-                errlist.append(err)
-            if 'dispersion' in termfit:
-                err = np.abs(errors)[:,3].sum()
-                errlist.append(err)
-            if 'repulsion' in termfit:
-                err = np.abs(errors)[:,1].sum()
-                errlist.append(err)
-            if 'polarize' in termfit or 'chgtrn' in termfit:
-                err = np.abs(errors)[:,2].sum()
-                errlist.append(err)
-            if len(termfit) > 2:
-                err = np.abs(errors)[:,4].sum()
-                errlist.append(err)
+        # if self.do_dimers or self.computeall:
+        #     calc_components, errors = self.compute_water_dimers()
+        #     if 'chgpen' in termfit or 'multipole' in termfit:
+        #         err = np.abs(errors)[:,0].sum()
+        #         errlist.append(err)
+        #     if 'dispersion' in termfit:
+        #         err = np.abs(errors)[:,3].sum()
+        #         errlist.append(err)
+        #     if 'repulsion' in termfit:
+        #         err = np.abs(errors)[:,1].sum()
+        #         errlist.append(err)
+        #     if 'polarize' in termfit or 'chgtrn' in termfit:
+        #         err = np.abs(errors)[:,2].sum()
+        #         errlist.append(err)
+        #     if len(termfit) > 2:
+        #         err = np.abs(errors)[:,4].sum()
+        #         errlist.append(err)
 
-            allres['dimers'] = [calc_components, errors]
-            dumpres['dimers'] = [calc_components, errors]
+        #     allres['dimers'] = [calc_components, errors]
+        #     dumpres['dimers'] = [calc_components, errors]
 
         sys.stdout.flush()
         if self.do_ccsdt_dimers or self.computeall:
