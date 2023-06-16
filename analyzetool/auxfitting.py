@@ -1839,6 +1839,7 @@ polar-eps         1e-06
         nvals = len(info) - 1
         err = np.zeros(nvals)+1e6
         res = np.zeros(nvals)-100
+        gaslog='gas.log'
         if not error:
             ngas = get_last_frame(f"{liqdir}/gas.log")
             if ngas > 1:
