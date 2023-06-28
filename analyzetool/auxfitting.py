@@ -2049,8 +2049,8 @@ polar-eps         1e-06
 
             if len(termfit) > 2:
                 err = np.abs(errors)[:,4].sum()
-                errlist.append(err)
-                errloc.append(err)
+                errlist.append(10*err)
+                errloc.append(10*err)
 
             allres['clusters'] = [calc_components, errors]
             dumpres['clusters'] = errloc
