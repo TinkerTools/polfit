@@ -2154,7 +2154,7 @@ polar-eps         1e-06
             totalerror = np.append(totalerror,(1e6))
 
         if self.testliq and not self.fitliq:
-            if totalerror.sum() > 300:
+            if totalerror.sum() > 500:
                 proxyerr = totalerror[:8].sum()
                 totalerror = np.append(totalerror,proxyerr/5)
                 
