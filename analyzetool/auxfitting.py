@@ -66,7 +66,7 @@ def get_compute_cb():
 
     cb = 0
     for line in all_out:
-        s = line.splti()
+        s = line.split()
         if "Maximum compute capability" in line:
             cb = float(s[-1])
             break
