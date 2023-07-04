@@ -57,6 +57,24 @@ def load_pickle(filenm):
 def round1(a,dec=6):
     return np.round(a,dec)
 
+def get_compute_cb():
+    tinker9 = f"{tinkerpath}/tinker9"
+    cmd = f"{tinker9} info"
+    out_log = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding='utf8')
+    output = out_log.communicate()
+    all_out = output[0].split('\n')
+
+    cb = 0
+    for line in all_out:
+        s = line.splti()
+        if "Maximum compute capability" in line:
+            cb = float(s[-1])
+            break
+
+    if cb == 0:
+        cb = 1
+    return cb
+
 def count_atoms(fn):
     f = open(fn)
     dt = f.readlines()
@@ -1490,6 +1508,18 @@ polar-eps         1e-06
         
         self.liquidref = [refvalues,liqprop]
 
+        cb = get_compute_cb()
+        natms = self.Natomsbox
+
+        speed = (0.05+(1000/natms))*50
+        if cb > 5.2:
+            speed *= (cb-5.2)
+        else:
+            speed *= (cb/5.2)
+        
+        self.gpuspeed = speed
+
+
     def checkparams(self,testprms):
         for n,vals in self.chkdata.items():
             prms = vals['params']
@@ -1644,15 +1674,15 @@ polar-eps         1e-06
             simlen = (nsteps*2/1000)
             init_time = time.time()
 
-            if simlen < 100:
-                sleeper = 40
+            timsec = simlen * (86.4/self.gpuspeed)
+            if simlen <= 10:
+                sleeper = timsec+10 
+            elif simlen < 100:
+                sleeper = timsec+30
             else:
                 sleeper = 60
             
-            if simlen < 50:
-                timeout = 5*60
-            else:
-                timeout = 3.2*simlen
+            timeout = 2*timsec
             last_frame = 0
             diff_timer = 0
             diff = 5
