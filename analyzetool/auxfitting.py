@@ -2023,8 +2023,9 @@ polar-eps         1e-06
             allres['ccsdt_dimers'] = [calc_components, errors]
             dumpres['ccsdt_dimers'] = errors
 
-            errors = [5*a for a in errors]
-            errlist += errors
+            if len(termfit) > 2:
+                errors = [5*a for a in errors]
+                errlist += errors
         
         sys.stdout.flush()
         if self.do_clusters or self.computeall:
