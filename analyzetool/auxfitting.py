@@ -1676,9 +1676,9 @@ polar-eps         1e-06
             timsec = simlen * (86.4/self.gpuspeed)
             
             if simlen <= 11:
-                sleeper = timsec+10 
+                sleeper = timsec 
             elif simlen < 100:
-                sleeper = timsec+30
+                sleeper = timsec+20
             else:
                 sleeper = 60
             
@@ -1687,8 +1687,6 @@ polar-eps         1e-06
             diff_timer = 0
             diff = 5
 
-            print(simlen,self.gpuspeed,sleeper,timeout)
-            sys.stdout.flush()
             time.sleep(sleeper)
 
             running = True
