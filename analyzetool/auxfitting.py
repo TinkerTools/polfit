@@ -2107,6 +2107,7 @@ polar-eps         1e-06
                 testerr = np.abs(errors)[:,1]
                 testerr = np.sort(testerr)[::-1]
                 # err = testerr.mean()+testerr[:ndim].mean()
+                err = testerr.sum()
                 errlist.append(err)
                 errloc.append(err)
             if 'polarize' in termfit or 'chgtrn' in termfit:
