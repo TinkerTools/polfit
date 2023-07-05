@@ -2087,9 +2087,6 @@ polar-eps         1e-06
         sys.stdout.flush()
         if self.do_sapt_dimers or self.computeall:
             calc_components, errors = self.compute_sapt_dimers()   
-            ndim = int(errors.shape[0]/2)
-            if ndim > 10:
-                ndim = 10 
             
             errloc = [] 
             if 'chgpen' in termfit or 'multipole' in termfit:
@@ -2109,7 +2106,7 @@ polar-eps         1e-06
             if 'repulsion' in termfit:
                 testerr = np.abs(errors)[:,1]
                 testerr = np.sort(testerr)[::-1]
-                err = testerr.mean()+testerr[:ndim].mean()
+                # err = testerr.mean()+testerr[:ndim].mean()
                 errlist.append(err)
                 errloc.append(err)
             if 'polarize' in termfit or 'chgtrn' in termfit:
