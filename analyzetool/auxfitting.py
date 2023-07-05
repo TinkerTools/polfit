@@ -2150,7 +2150,10 @@ polar-eps         1e-06
         totalerror = np.array(errlist).flatten()
         ### remove inf and nan
         for k, a in enumerate(totalerror):
-            if np.isnan(a) or np.isinf(a):
+            try:
+                if np.isnan(a) or np.isinf(a):
+                    totalerror[k] = 1e3
+            except:
                 totalerror[k] = 1e3
         
         ### Minimize liquid box
