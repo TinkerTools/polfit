@@ -1344,10 +1344,12 @@ polar-eps         1e-06
                 ref = ref_energy[nm]
                 
                 err = (res1 - ref)
-                if 'DESRES' in nm:
+                if 'DESRES' in nm and 'sapt' not in nm:
+                    err[:,0] /= 3
                     err[:,1] = np.zeros(ndim)
                     err[:,2] = np.zeros(ndim)
                     err[:,3] = np.zeros(ndim)
+                    err[:,4] /= 3
 
                     if self.sapt_dimers_include_DESRES[nm]:
                         errors.append(err)
