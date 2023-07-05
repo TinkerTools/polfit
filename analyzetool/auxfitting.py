@@ -2009,19 +2009,15 @@ polar-eps         1e-06
         os.chdir(path_mol)
         self.make_key(new_params,keytype="both")
         rms = self.get_potfit()
+        allres['potrms'] = rms
+        dumpres['potrms'] = rms
 
         err_pol = self.get_polarize()
         ## potential fit
         poterror = 0.0
         if 'chgpen' in termfit or 'multipole' in termfit:
             refrms = self.initpotrms
-
-            # if rms > refrms+0.3:
-            #     poterror = rms*(1e4)
-            # else:
             poterror = rms*10
-            allres['potrms'] = rms
-            dumpres['potrms'] = rms
         
         sys.stdout.flush()
         errlist = []
@@ -2053,7 +2049,7 @@ polar-eps         1e-06
             allres['ccsdt_dimers'] = [calc_components, errors]
             dumpres['ccsdt_dimers'] = errors
 
-            if len(termfit) > 2:
+            if len(termfit) > 2 and 'multipole' not in termfit:
                 errors = [5*a for a in errors]
                 errlist += errors
         
@@ -2078,7 +2074,7 @@ polar-eps         1e-06
                 errlist.append(err)
                 errloc.append(err)
 
-            if len(termfit) > 2:
+            if len(termfit) > 2 and 'multipole' not in termfit:
                 err = np.abs(errors)[:,4].sum()
                 errlist.append(1.5*err)
                 errloc.append(1.5*err)
@@ -2122,7 +2118,7 @@ polar-eps         1e-06
                 errlist.append(err)
                 errloc.append(err)
 
-            if len(termfit) > 2:
+            if len(termfit) > 2 and 'multipole' not in termfit:
                 testerr = np.abs(errors)[:,4]
                 testerr = np.sort(testerr)[::-1]
                 err = testerr.mean()+testerr[:ndim].mean()
@@ -2185,7 +2181,7 @@ polar-eps         1e-06
             totalerror = np.append(totalerror,(1e6))
 
         if self.testliq and not self.fitliq:
-            if totalerror.sum() > 500:
+            if totalerror.sum() > 500 and optimizer == 'genetic':
                 proxyerr = totalerror[:8].sum()
                 totalerror = np.append(totalerror,proxyerr/5)
                 
