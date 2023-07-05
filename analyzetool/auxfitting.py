@@ -2121,7 +2121,8 @@ polar-eps         1e-06
             if len(termfit) > 2 and 'multipole' not in termfit:
                 testerr = np.abs(errors)[:,4]
                 testerr = np.sort(testerr)[::-1]
-                err = testerr.mean()+testerr[:ndim].mean()
+                # err = testerr.mean()+testerr[:ndim].mean()
+                err = testerr.sum()
                 errlist.append(err)
                 errloc.append(err)
 
