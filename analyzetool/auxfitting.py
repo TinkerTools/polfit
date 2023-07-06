@@ -94,11 +94,11 @@ def copy_files(src,destdir):
 
 def get_last_frame(fname):    
     if 'gas2.log' in fname:
-        cmd = f"""grep "Analysis for" {fname} | wc -l"""
+        cmd = f"""grep "Analysis for" {fname} -a | wc -l"""
     else:
-        cmd = f"""grep "Current Time" {fname} | wc -l"""
+        cmd = f"""grep "Current Time" {fname} -a | wc -l"""
         
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,shell=True,encoding='utf8')
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,shell=True,encoding='utf8')
     output = process.stdout.readline()
     stdout = process.communicate()[0]
 
@@ -1847,7 +1847,7 @@ polar-eps         1e-06
 
         nframes = 0
         if os.path.isfile('liquid.log') and not error:
-            cmd = "grep 'Frame Number' liquid.log | tail -1"
+            cmd = "grep 'Frame Number' liquid.log -a | tail -1"
             out_log = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding='utf8')
             output = out_log.communicate()
             all_out = output[0].split('\n')
