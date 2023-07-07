@@ -2231,6 +2231,7 @@ polar-eps         1e-06
         save_pickle(allres, self.dumpresult)           
         
         #### For differential evolution
+        totalerror = np.array(totalerror.flatten(),dtype=float)
         if optimizer == 'genetic':
             errors = totalerror.sum()
         else:
