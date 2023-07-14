@@ -114,6 +114,36 @@ energy_terms = np.array(['Stretching', 'Bending', 'Stretch-Bend', 'Bend', 'Angle
        'Repulsion', 'Dispersion', 'Multipoles', 'Polarization',
        'Transfer'], dtype='<U12')
 
+def killjobs(progs,elfn=0):
+    username = os.getlogin()
+    pslinux = f'/bin/ps aux | grep {username}'
+    if elfn != 0:
+        pslinux = f' ssh elf{elfn} "/bin/ps aux | grep {username}"'
+    proc = subprocess.Popen(pslinux,shell=True,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    out, err = proc.communicate()
+    out2 = out.decode(encoding='utf-8')
+    output = out2.split('\n')
+    jobs = []
+    for line in output:
+        try:
+            res = line.split()
+            user = res[0]
+            pid = int(res[1])
+            comm = " ".join(res[10:])
+            jobs.append([pid,comm])
+            
+        except:
+            None
+    
+    for js in jobs:
+        pid,cmd = js
+        for pr in progs:
+            if pr in cmd:
+                if elfn != 0:
+                    os.system(f'ssh elf{elfn} "kill -9 {pid}"')
+                else:
+                    os.kill(pid,signal.SIGKILL)
 
 #######################
 HOME = os.path.expanduser('~')
@@ -146,6 +176,7 @@ class Auxfit(object):
         self.rungas = True
         self.testliq = False
         self.fitliq = False
+        self.liquidref = []
 
         global i 
         i = 0
@@ -1504,9 +1535,9 @@ polar-eps         1e-06
         self.gpuspeed = speed
 
         time_500ps = 500 * (86.4/self.gpuspeed) / 60
-        print(f"Estimated time to run 500 ps: {time_500ps}\n")
+        print(f"Estimated time to run 500 ps: {time_500ps:7.1f} minutes\n")
         sys.stdout.flush()
-        
+
     def checkparams(self,testprms):
         for n,vals in self.chkdata.items():
             prms = vals['params']
@@ -1628,7 +1659,7 @@ polar-eps         1e-06
             cb = 1
         return cb
 
-    def calltinker(self,command, nsteps=None, elfn=None, cudad=0):
+    def calltinker(self,command, nsteps=None, elfn=0, cudad=0):
 
         """ Call TINKER; prepend the tinkerpath to calling the TINKER program. """
 
@@ -1654,7 +1685,7 @@ polar-eps         1e-06
             csplit[0] = prog
             
             commandd = ' '.join(csplit) + ' > liquid.log 2>&1'
-            if elfn != None:
+            if elfn != 0:
                 cmd_liq = f"ssh elf{elfn} 'cd {currdir} && {commandd}' "
             else:
                 cmd_liq = commandd
@@ -1753,8 +1784,6 @@ polar-eps         1e-06
             
             if sucess:
                 liqproc.communicate()
-            else:
-                liqproc.kill()
 
             if rungas:
                 filename = os.path.abspath("./gas.log")
@@ -1766,10 +1795,13 @@ polar-eps         1e-06
                     diff_timer = time.time() - init_time
                     
                     if diff_timer > timeout:
-                        gas_run.kill()
+                        killjobs(['dynamic gas','dynamic liquid'])
                     
                     time.sleep(5)
                     ngasfrm = get_last_frame(filename)
+            else:
+                if not sucess:
+                    killjobs(['dynamic liquid'])
         
         else:
             if 'liquid' in csplit[1]:
@@ -1781,7 +1813,7 @@ polar-eps         1e-06
 
                 cmd_ = ' '.join(csplit[:-2]) + ' >> ' + csplit[-1] + ' 2>&1'
 
-                if elfn != None:
+                if elfn != 0:
                     commd2 = f"ssh elf{elfn} 'cd {currdir} && {cmd_}' "
                 else:
                     commd2 = cmd_
@@ -2252,7 +2284,7 @@ polar-eps         1e-06
 
         self.fitliq = fitliq
         self.testliq = testliq
-        if fitliq:
+        if fitliq and len(self.liquidref) == 0:
             self.liquid_fitproperties()
         
         self.log = {}
