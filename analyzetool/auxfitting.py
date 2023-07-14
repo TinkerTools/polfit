@@ -1934,7 +1934,7 @@ polar-eps         1e-06
                 Eps0 = liquid.dielectric
                 kappa = liquid.kappa/100
                 alphaT = (1e3)*liquid.alpha
-                res = np.array([Rho_avg,Hvap_avg,Eps0,kappa,alphaT])
+                res = np.array([Rho_avg,Hvap_avg,Eps0,kappa,alphaT,liquid.PE.shape[0]])
 
                 total += 1
 
