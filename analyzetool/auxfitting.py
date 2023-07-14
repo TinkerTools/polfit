@@ -1503,7 +1503,10 @@ polar-eps         1e-06
         
         self.gpuspeed = speed
 
-
+        time_500ps = 500 * (86.4/self.gpuspeed) / 60
+        print(f"Estimated time to run 500 ps: {time_500ps}\n")
+        sys.stdout.flush()
+        
     def checkparams(self,testprms):
         for n,vals in self.chkdata.items():
             prms = vals['params']
