@@ -1784,24 +1784,8 @@ polar-eps         1e-06
             
             if sucess:
                 liqproc.communicate()
-
-            if rungas:
-                filename = os.path.abspath("./gas.log")
-                ngasfrm = get_last_frame(filename)
-
-                init_time = time.time() 
-                while ngasfrm < simtime_gas:
-                    time.sleep(5)
-                    diff_timer = time.time() - init_time
-                    
-                    if diff_timer > timeout:
-                        killjobs(['dynamic gas','dynamic liquid'])
-                    
-                    time.sleep(5)
-                    ngasfrm = get_last_frame(filename)
             else:
-                if not sucess:
-                    killjobs(['dynamic liquid'])
+                killjobs(['dynamic gas','dynamic liquid'],elfn)
         
         else:
             if 'liquid' in csplit[1]:
@@ -1834,7 +1818,7 @@ polar-eps         1e-06
         return error
 
 
-    def run_npt(self,equil=None, nsteps=None, nsteps_gas=None,elf_n=None):
+    def run_npt(self,equil=None, nsteps=None, nsteps_gas=None,elf_n=0):
         n = self.molnumber
         liqdir = f"{self.basedir}/{n}/liquid"
         refliq = f"{self.basedir}/{n}/ref_liquid"
