@@ -1891,12 +1891,12 @@ polar-eps         1e-06
         err = np.zeros(nvals)+1e6
         res = np.zeros(nvals)-100
         gaslog='gas.log'
+        ngas = 99
         if not error:
-            ngas = get_last_frame(f"{liqdir}/gas.log")
-            if ngas > 1:
-                gaslog='gas.log'
-            
-            if len(self.gasdcd) > 0 and not self.rungas:
+            if self.rungas:
+                ngas = get_last_frame(f"{liqdir}/gas.log")
+                        
+            if len(self.gasdcd) > 0 and ngas < 100:
                 os.system(f"rm -f gas2.log")
                 gasdcd = self.gasdcd
                 gasxyz = self.gasdcd[:-4]+'.xyz'
