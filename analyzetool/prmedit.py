@@ -6,6 +6,7 @@ import sys
 import math
 from time import gmtime, strftime
 import subprocess, threading
+import itertools
 
 headers = {"prmheader": """##############################
 ##                          ##
@@ -193,14 +194,42 @@ polar-eps         1e-06
 fix-chgpen
 #########################
 """      
+def compute_total_charge(mcharges,factors):
+    return(mcharges*factors).sum()
+def multipole_factors(refprm):
+    nmpol = len(refprm['multipole'][1])
+    mcharges = [refprm['multipole'][1][k][0] for k in range(nmpol)]
+    mcharges = np.array(mcharges)
+    
+    factors = np.ones(nmpol,dtype=int)
+    
+    if np.abs(mcharges.sum()) < 1e-5:
+        return factors
+    
+    r = 20
+    ncombs = itertools.combinations_with_replacement(range(1,20),nmpol)
+    tested = []
+    for a in ncombs:
+        if np.array(a).sum == nmpol:
+            continue
+        for b in itertools.permutations(a):
+            b1 = list(b)
+            if b1 in tested:
+                continue
+            res = compute_total_charge(mcharges,b)
+            if np.abs(res) < 1e-5:
+                del tested
+                return np.array(b,dtype=int)
+            if b1 not in tested:
+                tested.append(b1)
 
 def process_prm(prmfn):
     
     f = open(prmfn)
-    prmfile = f.readlines()
+    prmfile0 = f.readlines()
     f.close()
     
-    prmfile = [line for line in prmfile if line[0] != '#']
+    prmfile = [line for line in prmfile0 if line[0] != '#']
     prmfile = np.array(prmfile)
     prmfile = prmfile[prmfile != '\n']
     nstart = 0
@@ -209,6 +238,24 @@ def process_prm(prmfn):
             nstart = k
             break
     
+    mfactors = []
+    for k,line in enumerate(prmfile0):
+        if 'multipole_factors' in line:
+            line = line.strip("\n")
+            s = line.split('=')
+            if len(s) < 2:
+                s = line.split(':')
+            
+            s2 = s[1].split(',')
+            s3 = []
+            for a in s2:
+                aa = [ai for ai in a if ai.isdigit()]
+                if len(aa) > 0:
+                    s3.append(int("".join(aa)))
+
+            mfactors = s3
+            break
+
     bg = np.array([a[:5] for a in prmfile])
     atms = prmfile[bg=='atom ']
     bnd = prmfile[nstart:][bg[nstart:]=='bond ']
@@ -319,6 +366,8 @@ def process_prm(prmfn):
 
     if len(mlines) > 0:    
         for i,line in enumerate(mlines[::5]):
+            if '#' in line:
+                line = line.split('#')[0]
             typs = line.split()[1:-1]
             typs = [int(a) for a in typs]
             vals = [float(line.split()[-1])]
@@ -408,6 +457,7 @@ def process_prm(prmfn):
             'angcflux': angcflux,
             'chgtrn': chgtrn,
             'multipole': multipoles,
+            'multipole_factors': mfactors,
             'exchpol': np.asarray(exchpol)  }
 
 
@@ -772,7 +822,7 @@ def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas',path=""):
             thefile.write(keyfile+prmfile)
             return
 
-def write_prm(prmdict,fnout):
+def write_prm(prmdict,fnout,mfactors=[]):
 
     #Sort the types in ascending order
     origtyp = np.array(prmdict['types'])
@@ -796,18 +846,55 @@ def write_prm(prmdict,fnout):
     
     term = "multipole"
     prmfile += '\n\n'+headers[term]+'\n\n\n'
+    # get charge factors
+    factors = []
+    if 'multipole_factors' in prmdict.keys():
+        factors = np.array(prmdict['multipole_factors'],dtype=int)
+    if len(mfactors) != 0:
+        factors = np.array(mfactors,dtype=int)    
+    if len(factors) == 0:
+        factors = multipole_factors(prmdict)
+
+    nmpol = factors.shape[0]
+    l = ""
+    for k in range(nmpol-1):
+        if k != 0:
+            l+='+'
+        if factors[k] == 1:
+            l += f'c{k+1}'
+        else:
+            l += f'{factors[k]}*c{k+1}'
     for k,v in enumerate(prmdict[term][1]):
         v2 = prmdict[term][0][k]
         c = ""
         for ts in v2:
             c += f"{int(ts):4d} "
-        prmfile += f"{term:11s}{c:<27s}{v[0]:10.6f}\n"
+        
+        first_line = f"{term:11s}{c:<27s}{v[0]:10.6f}\n"
+        if k == nmpol-1:
+            if nmpol == 2:
+                first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -{l}"
+            elif nmpol > 2:
+                first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -({l})"
+            if factors[k] > 1:
+                first_line += f"/{factors[k]}\n"
+            else:
+                first_line += f"\n"
+
+        prmfile += first_line
         prmfile += f"{' ':38s}{v[1]:10.6f} {v[2]:10.6f} {v[3]:10.6f}\n"
         prmfile += f"{' ':38s}{v[4]:10.6f}\n"
         prmfile += f"{' ':38s}{v[5]:10.6f} {v[6]:10.6f}\n"
         v9 = -(v[4]+v[6])
         prmfile += f"{' ':38}{v[7]:10.6f} {v[8]:10.6f} {v9:10.6f}\n"
     
+    # Multipole factors line
+    l = f"[ {factors[0]}"
+    for k,fc in enumerate(factors):
+        if k > 0:
+            l += f",{fc}"
+    prmfile += f"## multipole_factors = {l} ] \n"
+
     term = 'polarize'
     prmfile += '\n\n'+headers[term]+'\n\n'
     for k in sorttypes:
