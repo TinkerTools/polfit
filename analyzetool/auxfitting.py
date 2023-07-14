@@ -1784,8 +1784,8 @@ polar-eps         1e-06
             
             if sucess:
                 liqproc.communicate()
-            else:
-                killjobs(['dynamic gas','dynamic liquid'],elfn)
+                
+            killjobs(['dynamic gas','dynamic liquid'],elfn)
         
         else:
             if 'liquid' in csplit[1]:
