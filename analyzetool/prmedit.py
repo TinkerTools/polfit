@@ -615,6 +615,9 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
             chgtrn.append([float(a) for a in s[1:]])
     
     chgpen = np.array(chgpen)
+    dispersion = np.array(dispersion)
+    repulsion = np.array(repulsion)
+    chgtrn = np.array(chgtrn)
     prmout = {}
     for term in uniq:
         prmout[term] = locals()[term]
