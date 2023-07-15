@@ -465,7 +465,8 @@ def process_prm(prmfn):
 
 def prm_from_key(keys,prmd={},exclude_prm=[]):
     indpterms = ["bond",'angle','strbnd','opbend','torsion',
-                 'bndcflux','angcflux',"polarize","chgpen"]
+                 'bndcflux','angcflux',"polarize","chgpen",
+                 'dispersion','repulsion','chgtrn']
 
     bond = [[],[],[]]
     angle = [[],[],[],[]]
@@ -477,6 +478,9 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
     angcflux = [[],[]]
     polarize = [[],[],[]]
     chgpen = []
+    dispersion = []
+    repulsion = []
+    chgtrn = []
 
     if isinstance(keys,str):
         keyfn = [keys]
@@ -600,6 +604,15 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
 
         if term == 'chgpen':
             chgpen.append([float(a) for a in s[1:]])
+
+        if term == 'dispersion':
+            dispersion.append([float(a) for a in s[1:]])
+        
+        if term == 'repulsion':
+            repulsion.append([float(a) for a in s[1:]])
+        
+        if term == 'chgtrn':
+            chgtrn.append([float(a) for a in s[1:]])
     
     chgpen = np.array(chgpen)
     prmout = {}
@@ -640,6 +653,36 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
                     else:
                         continue
                     prmd['chgpen'][ii[0]] = chgpen[k][1:]
+            elif term == 'dispersion':
+                tt = np.array(prmd['types'])
+                for k in range(dispersion.shape[0]):
+                    typ = dispersion[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['dispersion'][ii[0]] = dispersion[k][2]
+            elif term == 'repulsion':
+                tt = np.array(prmd['types'])
+                for k in range(repulsion.shape[0]):
+                    typ = repulsion[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['repulsion'][ii[0]] = repulsion[k][1:]
+            elif term == 'chgtrn':
+                tt = np.array(prmd['types'])
+                for k in range(chgtrn.shape[0]):
+                    typ = chgtrn[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['chgtrn'][ii[0]] = chgtrn[k][1:]
             elif term == 'multipole':
                 for ii,typs in enumerate(multipole[0]):
                     for kk,rtyps in enumerate(prmd[term][0]):
