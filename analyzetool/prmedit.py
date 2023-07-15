@@ -665,7 +665,7 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
                         rtyp = tt[ii[0]]
                     else:
                         continue
-                    prmd['dispersion'][ii[0]] = dispersion[k][2]
+                    prmd['dispersion'][ii[0]] = dispersion[k][1]
             elif term == 'repulsion':
                 tt = np.array(prmd['types'])
                 for k in range(repulsion.shape[0]):
