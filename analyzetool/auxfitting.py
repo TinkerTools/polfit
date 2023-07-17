@@ -169,6 +169,7 @@ class Auxfit(object):
         self.initpotrms = 0
 
         self.nsteps = 250000
+        self.nsteps_test = 25000
         self.nsteps_gas = 2000000
         self.equil = 200
         self.molpol = 0
@@ -1784,7 +1785,7 @@ polar-eps         1e-06
             
             if sucess:
                 liqproc.communicate()
-                
+
             killjobs(['dynamic gas','dynamic liquid'],elfn)
         
         else:
@@ -1858,11 +1859,11 @@ polar-eps         1e-06
             error = True
         
         os.system(f"{self.tinkerpath}/analyze liquid.xyz g > analysis.log")
-        if os.path.isfile("liquid.dcd"):
-            if nsteps > 100000:
-                err = self.calltinker("analyze liquid.dcd liquid.xyz em >> analysis.log")
+        if os.path.isfile("liquid.dcd") and self.fitliq:
+            err = self.calltinker("analyze liquid.dcd liquid.xyz em >> analysis.log")
+            anl = 'analysis.log'
         else:
-            error = True
+            anl=None
 
         nframes = 0
         if os.path.isfile('liquid.log') and not error:
@@ -1887,6 +1888,14 @@ polar-eps         1e-06
         halfgas = int(simlen_gas/2)
         total = simlen-nframes
 
+        if self.testliq:
+            if total == 0:
+                return 1e-3,[1,1]
+            elif nframes == 0:
+                return 1e6,[-100,-100]
+            else:
+                return total*1e3,[1,1]
+
         nvals = len(info) - 1
         err = np.zeros(nvals)+1e6
         res = np.zeros(nvals)-100
@@ -1908,9 +1917,9 @@ polar-eps         1e-06
                     gaslog = 'gas2.log'
 
             liquid = liqAnalyze.Liquid(liqdir,'liquid.xyz',self.Natoms,temperature,equil,
-                            logfile='liquid.log',analyzelog='analysis.log',gaslog=gaslog,molpol=self.molpol.mean())
+                            logfile='liquid.log',analyzelog=anl,gaslog=gaslog,molpol=self.molpol.mean())
 
-            if nsteps > 100000:
+            if nsteps > 100000 and self.fitliq:
                 liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
             if not liquid.error:
                 Rho_avg = 1000*liquid.avgRho
@@ -2208,21 +2217,18 @@ polar-eps         1e-06
                 proxyerr = totalerror[:8].sum()
                 totalerror = np.append(totalerror,proxyerr/5)
                 
-                err = np.zeros(nvals)+1e6
-                res = np.zeros(nvals)-100
+                err = 1e6
+                res = [-100,-100]
             else:
                 if minbox and rms < 1 and boxerr < 10:
-                    err,res = self.run_npt(5, 5000, 100000)
+                    err,res = self.run_npt(5, self.nsteps_test, 100000)
                     err = np.abs(err)
-                else:
-                    err = np.zeros(nvals)+1e6
-                    res = np.zeros(nvals)-100    
-                
-                if res[0] != -100:
-                    totalerror = np.append(totalerror,1e-3)
+                    totalerror = np.append(totalerror,err)
                 else:
                     totalerror = np.append(totalerror,1e6)
-
+                    err = 1e6
+                    res = [-100,-100]   
+            
             allres['liqres'] = [res, err]
             dumpres['liqres'] = [res, err]
         
