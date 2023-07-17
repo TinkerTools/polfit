@@ -588,7 +588,7 @@ class Auxfit(object):
 
         ntyps = len(prmdict['types'])
 
-        
+        prmfit = np.around(prmfit,6)
         for w,term in enumerate(termfit):
             prm = prmfit[inds[w][0]:inds[w][1]]
             if term == 'bond-force':
