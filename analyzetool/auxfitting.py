@@ -25,6 +25,7 @@ import analyzetool.liquid as liqAnalyze
 import pkg_resources
 import datetime, time
 import signal
+import shlex
 
 R=1.9872036E-3 #Kcal/K.mol
 KB = 1.38064852E-16 #J/K
@@ -1572,55 +1573,23 @@ polar-eps         1e-06
         elif 'arc' not in filenm:
             xyz_file = filenm+'.xyz'
 
+        tk9 = False
         if 'gas' in filenm:
-            cmd = f'{self.tinkerpath}/minimize {xyz_file} 0.1'
+            cmd = f'{self.tinkerpath}/minimize {xyz_file} 0.01'
         else:
+            tk9 = True
             cmd = f'{self.tinkerpath}/tinker9 minimize {xyz_file} 0.1' 
 
-        out_log = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding='utf8', preexec_fn=os.setsid)
-        rerun = False
-        try:
-            output = out_log.communicate(timeout=300)
-            all_out = output[0].split('\n')
-        except subprocess.TimeoutExpired:
-            job_pid1 = os.getpgid(out_log.pid)
-            os.killpg(os.getpgid(job_pid1), signal.SIGTERM)
-            out_log.kill()
-            output = out_log.communicate()
-            all_out = output[0].split('\n')
-            rerun = True
-
-        bb = all_out[-4:-1]
-
-        error = False
+        timeout=100
         rms = 100
-        if "Final RMS" in bb[1]:
-            line1 = bb[0].strip('\n')
-            line1 = line1.replace('D','e')
-            line2 = bb[1].strip('\n')
-            line2 = line2.replace('D','e')
-
-            rms = float(line2.split()[-1])
-            min_energ = float(line1.split()[-1])
-
-        ### Check for incomplete convergence in single precision
-        if 'Incomplete Convergence' in all_out[-6] and rms > 0.2 and rms < 100:
-            rerun = True
-        if rerun:
-            cmd = f'{self.tinkerpath}/tinker9-double minimize {xyz_file} 0.1' 
-
-            out_log = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,encoding='utf8', preexec_fn=os.setsid)
-            try:
-                output = out_log.communicate(timeout=300)
-            except subprocess.TimeoutExpired:
-                job_pid1 = os.getpgid(out_log.pid)
-                os.killpg(os.getpgid(job_pid1), signal.SIGTERM)
-                out_log.kill()
-                output = out_log.communicate()
-            
-            all_out = output[0].split('\n')
+        rerun = False
+        error = False
+        erase2 = False
+        try:
+            output = subprocess.check_output(cmd.split(),stderr=subprocess.STDOUT,encoding='utf8', timeout=timeout)
+            all_out = output.split('\n')
             bb = all_out[-4:-1]
-            
+
             if "Final RMS" in bb[1]:
                 line1 = bb[0].strip('\n')
                 line1 = line1.replace('D','e')
@@ -1629,6 +1598,36 @@ polar-eps         1e-06
 
                 rms = float(line2.split()[-1])
                 min_energ = float(line1.split()[-1])
+
+            ### Check for incomplete convergence in single precision
+            if 'Incomplete Convergence' in all_out[-6] or rms > 0.2:
+                rerun = True
+        except subprocess.TimeoutExpired:
+            erase2 = True
+            rerun = True
+            
+        if rerun and tk9:
+            cmd = f'{self.tinkerpath}/tinker9-double minimize {xyz_file} 0.1' 
+            timeout = 300
+
+            if erase2:
+                os.system(f"rm -rf *.xyz_* *.err* *.end")
+            try:
+                output = subprocess.check_output(cmd.split(),stderr=subprocess.STDOUT,encoding='utf8', timeout=timeout)
+                all_out = output.split('\n')
+                bb = all_out[-4:-1]
+
+                if "Final RMS" in bb[1]:
+                    line1 = bb[0].strip('\n')
+                    line1 = line1.replace('D','e')
+                    line2 = bb[1].strip('\n')
+                    line2 = line2.replace('D','e')
+
+                    rms = float(line2.split()[-1])
+                    min_energ = float(line1.split()[-1])
+            
+            except subprocess.TimeoutExpired:
+                None
 
         if rms == 100 or np.isnan(rms) or np.isinf(rms):
             min_energ = -1.1e6
