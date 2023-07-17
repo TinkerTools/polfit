@@ -1719,7 +1719,7 @@ polar-eps         1e-06
             else:
                 sleeper = 60
             
-            timeout = 2*timsec
+            timeout = 3*timsec
             last_frame = 0
             diff_timer = 0
             diff = 5
@@ -1761,7 +1761,7 @@ polar-eps         1e-06
 
                     if diff_timer != 0:
                         totaltime = time.time() - diff_timer
-                        if totaltime > sleeper*2:
+                        if totaltime > sleeper*3:
                             running = False
                             break                    
 
