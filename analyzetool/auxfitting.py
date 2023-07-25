@@ -177,6 +177,7 @@ class Auxfit(object):
         self.progfile = f'{base_dir}/{molnumber}/progress.pickle'
         self.rungas = True
         self.testliq = False
+        self.fithv = False
         self.fitliq = False
         self.liquidref = []
 
@@ -1887,14 +1888,19 @@ polar-eps         1e-06
         halfgas = int(simlen_gas/2)
         total = simlen-nframes
 
+        terr = 0
+        tres = []
         if self.testliq:
             if total == 0:
-                return 1e-3,[1,1]
+                terr,tres = 1e-3,[1,1]
             elif nframes == 0:
-                return 1e6,[-100,-100]
+                terr,tres = 1e6,[-100,-100]
             else:
-                return total*1e3,[1,1]
+                terr,tres = total*1e3,[1,1]
 
+            if not self.fithv:
+                return terr,tres
+        
         nvals = len(info) - 1
         err = np.zeros(nvals)+1e6
         res = np.zeros(nvals)-100
@@ -1920,6 +1926,8 @@ polar-eps         1e-06
 
             if nsteps > 100000 and self.fitliq:
                 liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
+
+            hverr = 0
             if not liquid.error:
                 Rho_avg = 1000*liquid.avgRho
                 Hvap_avg = 4.184*liquid.HV
@@ -1948,6 +1956,7 @@ polar-eps         1e-06
                         ref2 = info[c]
                         e = 100*(Hvap_avg-ref2)/ref2
                         err = np.append(err,e)
+                        hverr = e
                     if "Diel" in props:
                         c+=1
                         ref3 = info[c]
@@ -1966,6 +1975,11 @@ polar-eps         1e-06
         
         os.chdir(self.basedir)
 
+        if self.testliq and self.fithv and not self.fitliq:
+            if hverr != 0:
+                return total*err[1],res[:2]
+            else:
+                return terr,tres
         return total*err,res
     
 
