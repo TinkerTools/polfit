@@ -2255,7 +2255,7 @@ polar-eps         1e-06
                 err = np.zeros(nvals)+1e6
                 res = np.zeros(nvals)-100
 
-            totalerror = np.append(totalerror,100*err)
+            totalerror = np.append(totalerror,10*err)
             
             allres['liqres'] = [res, err]
             dumpres['liqres'] = [res, err]
