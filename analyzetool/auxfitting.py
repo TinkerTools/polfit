@@ -2236,7 +2236,7 @@ polar-eps         1e-06
                 if minbox and rms < 1 and boxerr < 10:
                     err,res = self.run_npt(5, self.nsteps_test, 100000)
                     err = np.abs(err)
-                    totalerror = np.append(totalerror,err)
+                    totalerror = np.append(totalerror,err/5)
                 else:
                     totalerror = np.append(totalerror,1e6)
                     err = 1e6
