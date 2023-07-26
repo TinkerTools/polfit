@@ -1906,6 +1906,7 @@ polar-eps         1e-06
         res = np.zeros(nvals)-100
         gaslog='gas.log'
         ngas = 99
+        hverr = 0
         if not error:
             if self.rungas:
                 ngas = get_last_frame(f"{liqdir}/gas.log")
@@ -1927,7 +1928,7 @@ polar-eps         1e-06
             if nsteps > 100000 and self.fitliq:
                 liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
 
-            hverr = 0
+            
             if not liquid.error:
                 Rho_avg = 1000*liquid.avgRho
                 Hvap_avg = 4.184*liquid.HV
