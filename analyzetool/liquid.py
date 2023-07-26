@@ -373,6 +373,7 @@ class Liquid(object):
                 if nframes < eq:
                     if nframes > 1:
                         eq = int(nframes/2)
+                        self.equil = eq
                     else:
                         self.error = True
 
@@ -705,6 +706,7 @@ class Liquid(object):
         if nframes < eq:
             if nframes != 0:
                 eq = int(nframes/2)
+                self.equil = eq
             else:
                 self.error = True
                 return
