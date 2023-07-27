@@ -195,12 +195,15 @@ def read_in_chunks(file_object, chunk_size=1024):
             break
         yield data
 
-def next_folder_number(savedir,basenm):
-    files = next(os.walk(savedir))[1]
-    files = [a for a in files if f'{basenm}' in a]
+def next_folder_number(savedir,basenm,isdir=False):
+    files0 = next(os.walk(savedir))
+
+    if isdir:
+        files = [a for a in files0[1] if f'{basenm}' in a]
+    else:
+        files = [a for a in files0[2] if f'{basenm}' in a]
     if len(files) == 0:
         fnm = f"{basenm}-1"
-
     else:
         nums = []
         for a in files:
@@ -209,9 +212,9 @@ def next_folder_number(savedir,basenm):
         nums = sorted(nums)
         fnm = f"res-{nums[-1]+1}"
 
-
-    if not os.path.isdir(f"{savedir}/{fnm}"):
-        os.mkdir(f"{savedir}/{fnm}")
+    if isdir:
+        if not os.path.isdir(f"{savedir}/{fnm}"):
+            os.mkdir(f"{savedir}/{fnm}")
 
     return nums[-1]+1,f"{savedir}/{fnm}"
 
