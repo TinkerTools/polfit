@@ -1713,7 +1713,8 @@ polar-eps         1e-06
             simlen = int(nsteps*2/1000)
             commandd = ' '.join(csplit) + ' > liquid.log 2>&1'
             if elfn != 0:
-                runfn = os.path.abspath(analyzetool.run_sim.__file__)
+                # runfn = os.path.abspath(analyzetool.run_sim.__file__)
+                runfn = "/user/roseane/Applications/bin/run_sim.py"
                 rcmd = f"ssh elf{elfn} 'cd {currdir} && python {runfn} {n} {simlen} {commandd}'"
                 jobs = subprocess.run(rcmd,shell=True)
             else:

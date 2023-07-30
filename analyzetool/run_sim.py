@@ -103,7 +103,7 @@ def count_atoms(fn):
 
 def run_simulation(n,simlen,cmd_liq):
     path = os.getcwd()
-    liqproc = subprocess.Popen("exec "+cmd_liq, shell=True, universal_newlines='expand_cr')
+    liqproc = subprocess.Popen(cmd_liq, shell=True, universal_newlines='expand_cr')
     filename = os.path.abspath(f"{path}/liquid.log")
     arcfile = os.path.abspath(f"{path}/liquid-{n}.dcd")
 
