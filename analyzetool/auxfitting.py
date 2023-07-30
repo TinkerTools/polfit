@@ -1743,7 +1743,7 @@ polar-eps         1e-06
                 csplit[0] = prog
                 commd2 = ' '.join(csplit[:-2]) + ' > ' + csplit[-1] + ' 2>&1'
 
-            _run = subprocess.Popen("exec " +commd2, shell=True, universal_newlines='expand_cr')
+            _run = subprocess.Popen(commd2, shell=True, universal_newlines='expand_cr')
             _run.communicate()
 
             try:
@@ -1861,8 +1861,10 @@ polar-eps         1e-06
                             logfile='liquid.log',analyzelog=anl,gaslog=gaslog,molpol=self.molpol.mean())
 
             if nsteps > 100000 and self.fitliq:
-                liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
-
+                try:
+                    liquid.get_dielectric('analysis.log',molpol=self.molpol.mean())
+                except:
+                    None
             
             if not liquid.error:
                 Rho_avg = 1000*liquid.avgRho
