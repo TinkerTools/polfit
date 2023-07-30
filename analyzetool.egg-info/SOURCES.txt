@@ -6,6 +6,7 @@ analyzetool/gas.py
 analyzetool/liquid.py
 analyzetool/prmedit.py
 analyzetool/process.py
+analyzetool/run_sim.py
 analyzetool/xyz2mol.py
 analyzetool/xyztopsi4.py
 analyzetool.egg-info/PKG-INFO

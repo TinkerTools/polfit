@@ -22,6 +22,7 @@ from collections import OrderedDict, defaultdict
 import analyzetool
 import analyzetool.gas as gasAnalyze
 import analyzetool.liquid as liqAnalyze
+from analyzetool.run_sim import run_simulation as run_sim
 import pkg_resources
 import datetime, time
 import signal
@@ -1548,8 +1549,8 @@ polar-eps         1e-06
         self.gpuspeed = speed
 
         time_500ps = 500 * (86.4/self.gpuspeed) / 60
-        print(f"Estimated time to run 500 ps: {time_500ps:7.1f} minutes\n")
-        sys.stdout.flush()
+        # print(f"Estimated time to run 500 ps: {time_500ps:7.1f} minutes\n")
+        # sys.stdout.flush()
 
     def checkparams(self,testprms):
         for n,vals in self.chkdata.items():
@@ -1697,15 +1698,13 @@ polar-eps         1e-06
             prog = f"cuda_device={cudad} {tinker9} dynamic"
             csplit[0] = prog
             
+            simlen = (nsteps*2/1000)
             commandd = ' '.join(csplit) + ' > liquid.log 2>&1'
             if elfn != 0:
-                cmd_liq = f"ssh elf{elfn} 'cd {currdir} && {commandd}' "
+                runfn = os.path.abspath(analyzetool.run_sim.__file__)
+                rcmd = f"ssh elf{elfn} 'cd {currdir} && python {runfn} {n} {simlen} {commandd}'"
             else:
                 cmd_liq = commandd
-
-            liqproc = subprocess.Popen("exec "+cmd_liq, shell=True, universal_newlines='expand_cr')
-            job_pid1 = os.getpgid(liqproc.pid)
-            filename = os.path.abspath("./liquid.log")
 
             rungas = False
             if csplit2 != None:
@@ -1719,86 +1718,8 @@ polar-eps         1e-06
                 gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
                 rungas = True
             
-            simlen = (nsteps*2/1000)
-            init_time = time.time()
-
-            timsec = simlen * (86.4/self.gpuspeed)
-            
-            if simlen <= 11:
-                sleeper = timsec 
-            elif simlen < 100:
-                sleeper = timsec+20
-            else:
-                sleeper = 60
-            
-            timeout = 3*timsec
-            last_frame = 0
-            diff_timer = 0
-            diff = 5
-
-            time.sleep(sleeper)
-
-            running = True
-            sucess = False
-
-            last_frame = get_last_frame(filename)
-            if last_frame == simlen:
-                running = False
-                sucess = True
-
-            if os.path.isfile(f"./liquid-{n}.err"):
-                running = False
-                sucess = False
-            
-            if not sucess and running and simlen < 100:
-                time.sleep(int(sleeper/3))
-                last_frame = get_last_frame(filename)
-                if last_frame == simlen:
-                    sucess = True
-                    running = False
-            
-            if os.path.isfile(f"./liquid-{n}.err"):
-                running = False
-                sucess = False
-
-            while running:
-                new_last_frame = get_last_frame(filename)
-                diff = new_last_frame - last_frame
-
-                if diff == 0: 
-                    if new_last_frame == simlen:
-                        sucess = True
-                        running = False
-                        break
-
-                    if diff_timer != 0:
-                        totaltime = time.time() - diff_timer
-                        if totaltime > sleeper*3:
-                            running = False
-                            break                    
-
-                    run_t = time.time() - init_time
-                    if run_t > timeout:
-                        running = False
-
-                        if new_last_frame == simlen:
-                            sucess = True
-                        break
-
-                    diff_timer = time.time()                  
-                    time.sleep(sleeper)
-
-                time.sleep(int(sleeper/2))
-                last_frame = new_last_frame
-
-                if os.path.isfile(f"./liquid-{n}.err"):
-                    running = False
-                    sucess = False
-            
-            if sucess:
-                liqproc.communicate()
-
-            killjobs([f'dynamic gas-{n}',f'dynamic liquid-{n}'],elfn)
+            run_sim(n,simlen,cmd_liq)
+            killjobs([f'dynamic gas-{n}'])
         
         else:
             if 'liquid' in csplit[1]:
