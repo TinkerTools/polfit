@@ -1794,7 +1794,7 @@ polar-eps         1e-06
             error = True
         
         os.system(f"{self.tinkerpath}/analyze liquid.xyz g > analysis.log")
-        if os.path.isfile("liquid-{n}.dcd") and self.fitliq:
+        if os.path.isfile(f"liquid-{n}.dcd") and self.fitliq:
             err = self.calltinker(f"analyze liquid-{n}.dcd liquid-{n}.xyz em >> analysis.log")
             anl = 'analysis.log'
         else:
