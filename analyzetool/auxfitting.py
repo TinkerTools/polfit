@@ -200,6 +200,9 @@ class Auxfit(object):
         self.usedatafile = False
         self.computeall = False
 
+        self.elfn = 0
+        self.cudad = 0
+
         self.datadir = datadir
         self.smallmoldir = smallmoldir
     def prepare_directories(self):
@@ -229,8 +232,10 @@ class Auxfit(object):
             
             if dest == liqdir:
                 copy_files(f"{xyzpath}/monomer.xyz",f"{dest}/gas.xyz")
+                copy_files(f"{xyzpath}/monomer.xyz",f"{dest}/gas-{n}.xyz")
                 copy_files(f"{xyzpath}/monomer.key",f"{dest}/gas.key")
                 copy_files(f"{xyzpath}/liquid.xyz",dest)
+                copy_files(f"{xyzpath}/liquid.xyz",f"{dest}/liquid-{n}.xyz")
                 copy_files(f"{xyzpath}/liquid.key",dest)
             if dest == poldir:
                 copy_files(f"{molpol}/monomer.xyz",dest)
@@ -264,6 +269,11 @@ class Auxfit(object):
         gas = f"{refliqdir}/gas.dcd"
         if os.path.isfile(gas):
             self.gasdcd = gas
+
+        ## Make soft links in liquid directory
+        os.system(f"rm -f {liqdir}/*-{n}.key")
+        os.system(f"ln -s {liqdir}/liquid.key {liqdir}/liquid-{n}.key")
+        os.system(f"ln -s {liqdir}/gas.key {liqdir}/gas-{n}.key")
 
     def process_prm(self,prmfn=None):
         n = self.molnumber
@@ -1661,9 +1671,11 @@ polar-eps         1e-06
         return cb
 
     def calltinker(self,command, nsteps=None, elfn=0, cudad=0):
-
+        n = self.molnumber
         """ Call TINKER; prepend the tinkerpath to calling the TINKER program. """
-
+        if self.elfn != 0:
+            elfn = self.elfn
+            cudad = self.cudad
         if nsteps == None:
             nsteps = self.nsteps
 
@@ -1682,7 +1694,7 @@ polar-eps         1e-06
         tinker9 = f"{tinkerpath}/tinker9"
         if csplit[0] == 'dynamic':
 
-            prog = f"{tinker9} dynamic"
+            prog = f"cuda_device={cudad} {tinker9} dynamic"
             csplit[0] = prog
             
             commandd = ' '.join(csplit) + ' > liquid.log 2>&1'
@@ -1734,7 +1746,7 @@ polar-eps         1e-06
                 running = False
                 sucess = True
 
-            if os.path.isfile("./liquid.err"):
+            if os.path.isfile(f"./liquid-{n}.err"):
                 running = False
                 sucess = False
             
@@ -1745,7 +1757,7 @@ polar-eps         1e-06
                     sucess = True
                     running = False
             
-            if os.path.isfile("./liquid.err"):
+            if os.path.isfile(f"./liquid-{n}.err"):
                 running = False
                 sucess = False
 
@@ -1779,21 +1791,21 @@ polar-eps         1e-06
                 time.sleep(int(sleeper/2))
                 last_frame = new_last_frame
 
-                if os.path.isfile("./liquid.err"):
+                if os.path.isfile(f"./liquid-{n}.err"):
                     running = False
                     sucess = False
             
             if sucess:
                 liqproc.communicate()
 
-            killjobs(['dynamic gas','dynamic liquid'],elfn)
+            killjobs([f'dynamic gas-{n}',f'dynamic liquid-{n}'],elfn)
         
         else:
             if 'liquid' in csplit[1]:
                 if 'analyze' in csplit[0]:
-                    prog = f"{tinker9} analyze"
+                    prog = f"cuda_device={cudad} {tinker9} analyze"
                 if 'minimize' in csplit[0]:
-                    prog = f"{tinker9} minimize"
+                    prog = f"cuda_device={cudad} {tinker9} minimize"
                 csplit[0] = prog
 
                 cmd_ = ' '.join(csplit[:-2]) + ' >> ' + csplit[-1] + ' 2>&1'
@@ -1836,31 +1848,31 @@ polar-eps         1e-06
         os.system(f"rm -f *.dyn *.dcd *.arc *.err*")
 
         if self.useliqdyn:
-            os.system(f"cp {refliq}/liquid.dyn . 2>/dev/null")
-            os.system(f"cp {refliq}/gas.dyn . 2>/dev/null")
+            os.system(f"cp {refliq}/liquid.dyn liquid-{n}.dyn 2>/dev/null")
+            os.system(f"cp {refliq}/gas.dyn gas-{n}.dyn 2>/dev/null")
 
         
         info = self.liquidref[0]
         props = self.liquidref[1]
-        temperature = info[0]
-
-        cmd_liq = f"dynamic liquid {nsteps} 2 1 4 {temperature:.2f} 1.0 n"                                                                  
-        cmd_gas = f"dynamic gas {nsteps_gas} 0.1 1 2 {temperature:.2f}"
+        temperature = info[0]   
+        
+        cmd_liq = f"dynamic liquid-{n} {nsteps} 2 1 4 {temperature:.2f} 1.0 n"                                                                  
+        cmd_gas = f"dynamic gas-{n} {nsteps_gas} 0.1 1 2 {temperature:.2f}"
 
         if self.rungas:
             res = self.calltinker([cmd_liq,cmd_gas], nsteps)
         else:
-            os.system(f"cp {refliq}/gas.log . 2>/dev/null")
+            os.system(f"cp {refliq}/gas.log gas.log 2>/dev/null")
             res = self.calltinker(cmd_liq, nsteps)
             
 
         error = False
-        if not os.path.isfile('liquid.log'):
+        if not os.path.isfile(f'liquid.log'):
             error = True
         
         os.system(f"{self.tinkerpath}/analyze liquid.xyz g > analysis.log")
-        if os.path.isfile("liquid.dcd") and self.fitliq:
-            err = self.calltinker("analyze liquid.dcd liquid.xyz em >> analysis.log")
+        if os.path.isfile("liquid-{n}.dcd") and self.fitliq:
+            err = self.calltinker(f"analyze liquid-{n}.dcd liquid-{n}.xyz em >> analysis.log")
             anl = 'analysis.log'
         else:
             anl=None
@@ -2205,7 +2217,7 @@ polar-eps         1e-06
             minbox = True
         # if len(termfit) > 1:
         if minbox:
-            err, min_en, rms = self.minimize_box()
+            err, min_en, rms = self.minimize_box(f'liquid-{n}.xyz')
 
             if err:
                 if min_en == -1.1e6:
@@ -2249,7 +2261,7 @@ polar-eps         1e-06
         sys.stdout.flush()
         if self.fitliq:
             if rms < 1 and boxerr < 10:
-                gaserr = self.minimize_box('gas.xyz',False)
+                gaserr = self.minimize_box(f'gas-{n}.xyz',False)
                 err,res = self.run_npt()
                 err = np.abs(err)
             else:
