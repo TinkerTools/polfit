@@ -1698,14 +1698,6 @@ polar-eps         1e-06
             prog = f"cuda_device={cudad} {tinker9} dynamic"
             csplit[0] = prog
             
-            simlen = (nsteps*2/1000)
-            commandd = ' '.join(csplit) + ' > liquid.log 2>&1'
-            if elfn != 0:
-                runfn = os.path.abspath(analyzetool.run_sim.__file__)
-                rcmd = f"ssh elf{elfn} 'cd {currdir} && python {runfn} {n} {simlen} {commandd}'"
-            else:
-                cmd_liq = commandd
-
             rungas = False
             if csplit2 != None:
                 prog = os.path.join(tinkerpath, csplit2[0])
@@ -1718,8 +1710,17 @@ polar-eps         1e-06
                 gas_run = subprocess.Popen("exec "+commd2, shell=True, universal_newlines='expand_cr')
                 rungas = True
             
-            run_sim(n,simlen,cmd_liq)
-            killjobs([f'dynamic gas-{n}'])
+            simlen = (nsteps*2/1000)
+            commandd = ' '.join(csplit) + ' > liquid.log 2>&1'
+            if elfn != 0:
+                runfn = os.path.abspath(analyzetool.run_sim.__file__)
+                rcmd = f"ssh elf{elfn} 'cd {currdir} && python {runfn} {n} {simlen} {commandd}'"
+                jobs = subprocess.run(rcmd,shell=True)
+            else:
+                cmd_liq = commandd
+                run_sim(n,simlen,cmd_liq)
+            if rungas:
+                killjobs([f'dynamic gas-{n}'])
         
         else:
             if 'liquid' in csplit[1]:
