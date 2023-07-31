@@ -118,7 +118,7 @@ def run_simulation(n,simlen,cmd_liq):
     else:
         sleeper = 60
     
-    timeout = 3*timsec
+    timeout = 5*timsec
 
     running = True
     sucess = False
