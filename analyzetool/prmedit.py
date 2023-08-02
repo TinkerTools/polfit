@@ -722,14 +722,6 @@ def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas',path=""):
     if not os.path.isfile(prmfn) and not os.path.isfile(f"{currdir}/{prmfn}"):
         prmkey = deftprm
     
-    if len(prmd) == 0:
-        if os.path.isfile(prmfn):
-            prmdict = process_prm(prmfn)
-        if os.path.isfile(f"{currdir}/{prmfn}"):
-            prmdict = process_prm(f"{currdir}/{prmfn}")
-    else:
-        prmdict = prmd
-    
     if opt == 'liquid':
         keyfile = keyliq.replace("fn.prm",prmkey)
     else:
@@ -739,6 +731,14 @@ def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas',path=""):
         with open(fnout,'w') as thefile:
             thefile.write(keyfile)
         return
+    
+    if len(prmd) == 0:
+        if os.path.isfile(prmfn):
+            prmdict = process_prm(prmfn)
+        if os.path.isfile(f"{currdir}/{prmfn}"):
+            prmdict = process_prm(f"{currdir}/{prmfn}")
+    else:
+        prmdict = prmd
 
     origtyp = np.array(prmdict['types'])
     sorttypes = np.argsort(origtyp)
