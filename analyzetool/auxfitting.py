@@ -2221,6 +2221,10 @@ polar-eps         1e-06
         os.chdir(self.basedir)
 
         n = self.molnumber
+        termfit = self.termfit
+        inds = self.termind
+        ntyps = len(self.prmdict['types'])
+
         path_mol = f"{self.basedir}/{n}"
         initprms = self.initial_params
         self.optimizer = optimizer
@@ -2260,24 +2264,65 @@ polar-eps         1e-06
                 fail = True
         else:
             ## make bounds
-            ubounds = []
-            lbounds = []
-            for k,brm in enumerate(initprms):
-                if brm < 0:
-                    lbounds.append(2*brm)
-                    ubounds.append(-2*brm)
-                elif brm > 0 and brm < 2:
-                    lbounds.append(0.7*brm)
-                    ubounds.append(1.3*brm)
+            ubounds = np.zeros(initprms.shape)
+            lbounds = np.zeros(initprms.shape)
+
+            for w,term in enumerate(termfit):
+                prm = initprms[inds[w][0]:inds[w][1]]
+                tlbound = np.ones(prm.shape) 
+                tubound = np.ones(prm.shape) 
+
+                if term == 'repulsion':
+                    prm1 = np.reshape(prm,(ntyps,3))
+
+                    tlbound = np.ones(prm1.shape)
+                    tubound = np.ones(prm1.shape)
+
+                    tlbound[:,0] *= 5       # lowest allowed value for K_rep
+                    tlbound[:,1] *= 2.5     # lowest allowed value for alpha_rep
+                    tlbound[:,2] *= 0.0001  # lowest allowed value for q_rep
+
+                    tubound[:,0] *= 54      # highest allowed value for K_rep
+                    tubound[:,1] *= 6.5     # highest allowed value for alpha_rep
+                    tubound[:,2] *= 10      # highest allowed value for q_rep
+
+                if term == 'dispersion':
+                    tlbound *= 0.0001  # lowest allowed value for K_disp
+                    tubound *= 80      # highest allowed value for K_disp
+
+                if term == 'chgpen':
+                    tlbound *= 2.5     # lowest allowed value for alpha_cpen
+                    tubound *= 6.5      # highest allowed value for alpha_cpen
+
+                if term == 'chgtrn':
+                    z = 0
+                    for k,val in enumerate(self.prmdict['chgtrn']):
+                        for i,v in enumerate(val):
+                            testv = self.init_ct[k][i]
+                            if testv != 0:
+                                if i == 0:
+                                    tlbound[z] *= 0.001 # lowest allowed value for K_ct
+                                    tubound[z] *= 30    # highest allowed value for K_ct
+                                else:
+                                    tlbound[z] *= 2.5   # lowest allowed value for alpha_ct
+                                    tubound[z] *= 6.5   # highest allowed value for alpha_ct
+                                z+=1
+                
                 else:
-                    lbounds.append(0.5*brm)
-                    ubounds.append(1.5*brm)
+                    for k,brm in enumerate(prm):
+                        if brm < 0:
+                            tlbound[k] *= 2*brm
+                            tubound[k] *= -2*brm
+                        elif brm > 0 and brm < 2:
+                            tlbound[k] *= 0.7*brm
+                            tubound[k] *= 1.3*brm
+                        else:
+                            tlbound[k] *= 0.5*brm
+                            tubound[k] *= 1.5*brm
 
-            ## make sure charges add to zero
-
-            lbounds = np.array(lbounds)
-            ubounds = np.array(ubounds)
-
+                lbounds[inds[w][0]:inds[w][1]] += tlbound.flatten()
+                ubounds[inds[w][0]:inds[w][1]] += tubound.flatten()
+            
             # try:
             opt = optimize.least_squares(self.optimize_prms,initprms,
             jac='3-point',bounds=(lbounds,ubounds),f_scale=0.5,
