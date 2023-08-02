@@ -1671,9 +1671,11 @@ polar-eps         1e-06
             cb = 1
         return cb
 
-    def calltinker(self,command, nsteps=None, elfn=0, cudad=0):
+    def calltinker(self,command, nsteps=None):
         n = self.molnumber
         """ Call TINKER; prepend the tinkerpath to calling the TINKER program. """
+        elfn = 0
+        cudad = 0
         if self.elfn != 0:
             elfn = self.elfn
             cudad = self.cudad
@@ -1754,7 +1756,7 @@ polar-eps         1e-06
         return error
 
 
-    def run_npt(self,equil=None, nsteps=None, nsteps_gas=None,elf_n=0):
+    def run_npt(self,equil=None, nsteps=None, nsteps_gas=None):
         n = self.molnumber
         liqdir = f"{self.basedir}/{n}/liquid"
         refliq = f"{self.basedir}/{n}/ref_liquid"
