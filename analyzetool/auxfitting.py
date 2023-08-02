@@ -2226,7 +2226,7 @@ polar-eps         1e-06
         ntyps = len(self.prmdict['types'])
 
         path_mol = f"{self.basedir}/{n}"
-        initprms = self.initial_params
+        initprms = np.array(self.initial_params)
         self.optimizer = optimizer
 
         self.fitliq = fitliq
