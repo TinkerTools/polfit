@@ -1723,7 +1723,7 @@ polar-eps         1e-06
                 cmd_liq = commandd
                 run_sim(n,simlen,cmd_liq)
             if rungas:
-                killjobs([f'dynamic gas-{n}'])
+                killjobs([f'gas-{n}'])
         
         else:
             if 'liquid' in csplit[1]:
@@ -1842,13 +1842,13 @@ polar-eps         1e-06
         err = np.zeros(nvals)+1e6
         res = np.zeros(nvals)-100
         gaslog='gas.log'
-        ngas = 99
+        ngas = 49
         hverr = 0
         if not error:
             if self.rungas:
                 ngas = get_last_frame(f"{liqdir}/gas.log")
                         
-            if len(self.gasdcd) > 0 and ngas < 100:
+            if len(self.gasdcd) > 0 and ngas < 50:
                 os.system(f"rm -f gas2.log")
                 gasdcd = self.gasdcd
                 gasxyz = self.gasdcd[:-4]+'.xyz'
@@ -1930,6 +1930,7 @@ polar-eps         1e-06
         n = self.molnumber
         path_mol = f"{self.basedir}/{n}"
         termfit = self.termfit
+        nterms = len(termfit) 
 
         if self.testliq or self.fitliq:
             info = self.liquidref[0]
@@ -2024,17 +2025,21 @@ polar-eps         1e-06
 
         #     allres['dimers'] = [calc_components, errors]
         #     dumpres['dimers'] = [calc_components, errors]
-
-        sys.stdout.flush()
+        nfactor = nterms
+        if 'multipole' in termfit and 'chgpen' in termfit:
+            nfactor -= 1
+        
+        if nterms < 3:
+            nfactor *= 0.5
+        
         if self.do_ccsdt_dimers or self.computeall:
             calc_components, errors = self.compute_ccsdt_dimer()
 
             allres['ccsdt_dimers'] = [calc_components, errors]
             dumpres['ccsdt_dimers'] = errors
 
-            if len(termfit) > 2 and 'multipole' not in termfit:
-                errors = [5*a for a in errors]
-                errlist += errors
+            errors = [nfactor*a for a in errors]
+            errlist += errors
         
         sys.stdout.flush()
         if self.do_clusters or self.computeall:
@@ -2057,10 +2062,9 @@ polar-eps         1e-06
                 errlist.append(err)
                 errloc.append(err)
 
-            if len(termfit) > 2 and 'multipole' not in termfit:
-                err = np.abs(errors)[:,4].sum()
-                errlist.append(1.5*err)
-                errloc.append(1.5*err)
+            err = np.abs(errors)[:,4].sum()
+            errlist.append(nfactor*err)
+            errloc.append(nfactor*err)
 
             allres['clusters'] = [calc_components, errors]
             dumpres['clusters'] = errloc
@@ -2099,13 +2103,13 @@ polar-eps         1e-06
                 errlist.append(err)
                 errloc.append(err)
 
-            if len(termfit) > 2 and 'multipole' not in termfit:
-                testerr = np.abs(errors)[:,4]
-                testerr = np.sort(testerr)[::-1]
-                # err = testerr.mean()+testerr[:ndim].mean()
-                err = testerr.sum()
-                errlist.append(err)
-                errloc.append(err)
+
+            testerr = np.abs(errors)[:,4]
+            testerr = np.sort(testerr)[::-1]
+            # err = testerr.mean()+testerr[:ndim].mean()
+            err = testerr.sum()
+            errlist.append(nfactor*err)
+            errloc.append(nfactor*err)
 
             allres['sapt_dimers'] = [calc_components, errors]
             dumpres['sapt_dimers'] = errloc
@@ -2226,7 +2230,8 @@ polar-eps         1e-06
         ntyps = len(self.prmdict['types'])
 
         path_mol = f"{self.basedir}/{n}"
-        initprms = np.array(self.initial_params)
+        initprms = self.initial_params
+        initprms = np.array(initprms)
         self.optimizer = optimizer
 
         self.fitliq = fitliq
@@ -2264,14 +2269,16 @@ polar-eps         1e-06
                 fail = True
         else:
             ## make bounds
-            ubounds = np.zeros(initprms.shape)
-            lbounds = np.zeros(initprms.shape)
+            ubounds = np.zeros(initprms.shape[0])
+            lbounds = np.zeros(initprms.shape[0])
 
             for w,term in enumerate(termfit):
                 prm = initprms[inds[w][0]:inds[w][1]]
-                tlbound = np.ones(prm.shape) 
-                tubound = np.ones(prm.shape) 
+                tlbound = np.ones(prm.shape[0]) 
+                tubound = np.ones(prm.shape[0]) 
 
+                # print(term,termfit,prm.shape)
+                # sys.stdout.flush()
                 if term == 'repulsion':
                     prm1 = np.reshape(prm,(ntyps,3))
 
@@ -2286,15 +2293,15 @@ polar-eps         1e-06
                     tubound[:,1] *= 6.5     # highest allowed value for alpha_rep
                     tubound[:,2] *= 10      # highest allowed value for q_rep
 
-                if term == 'dispersion':
+                elif term == 'dispersion':
                     tlbound *= 0.0001  # lowest allowed value for K_disp
                     tubound *= 80      # highest allowed value for K_disp
 
-                if term == 'chgpen':
-                    tlbound *= 2.5     # lowest allowed value for alpha_cpen
+                elif term == 'chgpen':
+                    tlbound *= 2.0     # lowest allowed value for alpha_cpen
                     tubound *= 6.5      # highest allowed value for alpha_cpen
 
-                if term == 'chgtrn':
+                elif term == 'chgtrn':
                     z = 0
                     for k,val in enumerate(self.prmdict['chgtrn']):
                         for i,v in enumerate(val):
@@ -2304,8 +2311,8 @@ polar-eps         1e-06
                                     tlbound[z] *= 0.001 # lowest allowed value for K_ct
                                     tubound[z] *= 30    # highest allowed value for K_ct
                                 else:
-                                    tlbound[z] *= 2.5   # lowest allowed value for alpha_ct
-                                    tubound[z] *= 6.5   # highest allowed value for alpha_ct
+                                    tlbound[z] *= 2.0   # lowest allowed value for alpha_ct
+                                    tubound[z] *= 7.0   # highest allowed value for alpha_ct
                                 z+=1
                 
                 else:
@@ -2320,8 +2327,17 @@ polar-eps         1e-06
                             tlbound[k] *= 0.5*brm
                             tubound[k] *= 1.5*brm
 
-                lbounds[inds[w][0]:inds[w][1]] += tlbound.flatten()
-                ubounds[inds[w][0]:inds[w][1]] += tubound.flatten()
+                tlbound = tlbound.flatten()
+                tubound = tubound.flatten()
+                
+                lbounds[inds[w][0]:inds[w][1]] += tlbound
+                ubounds[inds[w][0]:inds[w][1]] += tubound
+
+                for ii,val in enumerate(prm):
+                    if val > tubound[ii]:
+                        initprms[inds[w][0]+ii] = tubound[ii]
+                    if val < tlbound[ii]:
+                        initprms[inds[w][0]+ii] = tlbound[ii]
             
             # try:
             opt = optimize.least_squares(self.optimize_prms,initprms,
