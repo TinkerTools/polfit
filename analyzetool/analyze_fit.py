@@ -16,29 +16,18 @@ from matplotlib.ticker import AutoMinorLocator
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 import matplotlib.gridspec as gridspec
 
-datadir = "/work/roseane/HIPPO/small_molecules/org_molecules/reference-data"
+datadir = "~/HIPPO/small_molecules/org_molecules/reference-data"
 prmdir = f"{datadir}/prmfiles"
-seqID_failed = np.array([182, 335, 383, 391, 398, 505, 510, 511, 513, 514, 515])  ## elements: Se, Ar, B
-files = next(os.walk(prmdir))[2]
-files = [a for a in files if 'water' not in a and 'prm' in a]
-molIDs = sorted([int(a.split('.')[0]) for a in files if 'bkp' not in a])
-molIDs = [a for a in molIDs if a not in seqID_failed]
 
-dbase_info = "/work/roseane/HIPPO/small_molecules/org_molecules/reference-data/database-info"
+dbase_info = f"{datadir}/database-info"
 molinfo = load_pickle(f"{dbase_info}/molinfo_dict.pickle")
 database_full = load_pickle(f"{dbase_info}/full_database.pickle")
 desres_dimer_info = load_pickle(f"{dbase_info}/desres_dimer_info.pickle")
+molIDs = load_pickle(f"{dbase_info}/molIDs.pickle")
 watercid = 962
 
-torsioninfo = np.array([  6,  11,  12,  14,  16,  18,  19,  22,  25,  28,  29,  32,  33,
-        34,  36,  37,  38,  44,  47,  48,  49,  50,  52,  54,  55,  57,
-        62,  68,  70,  71,  73,  77,  78,  84,  85,  86,  87,  88,  89,
-        91,  92,  94, 100, 102, 103, 108, 109, 111, 112, 113,
-       115, 116, 117, 118, 119, 121, 122, 123, 125, 126, 127, 129,
-       130, 131, 132, 133, 135, 137, 139, 142, 144, 146])
-
 ref_data = datadir
-smallmoldir = "/work/roseane/HIPPO/small_molecules"
+smallmoldir = "~/HIPPO/small_molecules"
 
 refpath = f"{smallmoldir}/org_molecules/fitting-2"
 testfit = f"{refpath}/test-fit"
