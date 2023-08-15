@@ -723,7 +723,8 @@ polar-eps         1e-06
             acls = typcls[t]
             term = "polarize"
             v = prmdict[term][0][k]
-            c = "  ".join(prmdict[term][1][k])
+            conlist = [str(a) for a in prmdict[term][1][k]]
+            c = "  ".join(conlist)
             keyfile += f"{term:16s} {t:<11d}{v:10.6f}  {c}\n"
 
             term = "chgpen"
@@ -810,9 +811,18 @@ polar-eps         1e-06
             fname = f"{self.basedir}/{n}/{filenm}"
         else:
             return
+
+        print(f"Loading previous data from {filenm}")
+
+        f2 = {}
+        if os.path.isfile(f"{fname}_temp"):
+            fname2 = f"{fname}_temp"
+            print(f"Loading previous data from {filenm}_temp")
+            f2 = load_pickle(fname2)
         
         self.usedatafile = True
-        self.chkdata = load_pickle(fname)
+        f1 = load_pickle(fname)
+        self.chkdata = {**f1,**f2}
 
     ## prepare dimer files
     def prepare_opt_sapt_dimers(self):
@@ -937,27 +947,27 @@ polar-eps         1e-06
             self.sapt_dimers_indx[fn] = indx.copy()
 
         # Exclude fitting to DESRES sapt data if you have other data
-        include_DESRES = {}
-        total_included = 0
-        for nm in fnames:
-            if 'DESRES' in nm:
-                include_DESRES[nm] = False  
-                if 'sapt' in nm:
-                    include_DESRES[nm] = True
-                    total_included += 1
-                    continue
-                if'water' not in nm:
-                    include_DESRES[nm] = True
-                    total_included += 1
-                else:
-                    if not fwater_sapt:
-                        include_DESRES[nm] = True
-                        total_included += 1
+        include_ = {fn:True for fn in fnames}
+        total_included = len(fnames)
+        # for nm in fnames:
+        #     if 'DESRES' in nm:
+        #         include_[nm] = False  
+        #         if 'sapt' in nm:
+        #             include_[nm] = True
+        #             total_included += 1
+        #             continue
+        #         if'water' not in nm:
+        #             include_[nm] = True
+        #             total_included += 1
+        #         else:
+        #             if not fwater_sapt:
+        #                 include_[nm] = True
+        #                 total_included += 1
                         
-            else:
-                total_included += 1
+        #     else:
+        #         total_included += 1
 
-        self.sapt_dimers_include_DESRES = include_DESRES
+        self.sapt_dimers_include = include_
 
         if total_included:
             self.do_sapt_dimers = True
@@ -1357,7 +1367,7 @@ polar-eps         1e-06
         
         os.chdir(self.basedir)
 
-    def compute_sapt_dimers(self):  
+    def compute_sapt_dimers(self,incl_all=False):  
         n = self.molnumber
         dimerdir = f"{self.basedir}/{n}/dimer"      
         os.chdir(dimerdir)
@@ -1367,15 +1377,21 @@ polar-eps         1e-06
 
         all_componts = []
         errors = []
+        nincl = 0
         for k,nm in enumerate(nm_dimers):
             fnames = [f"{nm}",f"{nm}-mol1",f"{nm}-mol2"]
-                        
+            
+            incl = self.sapt_dimers_include[nm] | incl_all
+            if not incl:
+                continue
+            
             comps = self.analyze_arc(fnames[0],'tinker.key',False)
             comps1 = self.analyze_arc(fnames[1],'tinker.key',False)
             comps2 = self.analyze_arc(fnames[2],'tinker.key',False)
             indx = self.sapt_dimers_indx[nm]
             ndim = int(indx.shape[0])
             res1 = np.zeros((ndim,5))
+
             if comps.sum() > 1e5:
                 res1 += 100
                 err = np.zeros((ndim,5))+1e6
@@ -1395,16 +1411,14 @@ polar-eps         1e-06
                     err[:,2] = np.zeros(ndim)
                     err[:,3] = np.zeros(ndim)
                     err[:,4] /= 3
-
-                    if self.sapt_dimers_include_DESRES[nm]:
-                        errors.append(err)
-                else:
-                    errors.append(err)
+                
+            errors.append(err)
             all_componts.append(res1)
+            nincl += 1
         
         os.chdir(self.basedir)
 
-        if len(nm_dimers) > 1:
+        if nincl > 1:
             allerr = errors[0]
             for e in errors[1:]:
                 allerr = np.concatenate((allerr,e))
@@ -1638,7 +1652,7 @@ polar-eps         1e-06
                     rms = float(line2.split()[-1])
                     min_energ = float(line1.split()[-1])
             
-            except subprocess.TimeoutExpired:
+            except:
                 None
 
         if rms == 100 or np.isnan(rms) or np.isinf(rms):
@@ -1724,6 +1738,10 @@ polar-eps         1e-06
                 run_sim(n,simlen,cmd_liq)
             if rungas:
                 killjobs([f'gas-{n}'])
+
+            killjobs([f'dynamic liquid-{n}',f'gas-{n}'])
+            if elfn != 0:
+                killjobs([f'dynamic liquid-{n}',f'gas-{n}'],elfn)
         
         else:
             if 'liquid' in csplit[1]:
@@ -1958,17 +1976,19 @@ polar-eps         1e-06
                 else:
                     errors = totalerror.copy()
 
-                if i > 1:
-                    perror = self.log[i-1]['error']
-                    if perror.shape[0] == totalerror.shape[0] or optimizer == 'genetic':
+                test_err = totalerror.sum()
+                if test_err < 1e5:
+                    if i > 1:
+                        perror = self.log[i-1]['error']
+                        if perror.shape[0] == totalerror.shape[0] or optimizer == 'genetic':
+                            self.log[i] = allres
+                            save_pickle(self.log, f"{self.dumpfile}_temp")
+
+                            return errors
+                    else:  
                         self.log[i] = allres
                         save_pickle(self.log, f"{self.dumpfile}_temp")
-
-                        return errors
-                else:  
-                    self.log[i] = allres
-                    save_pickle(self.log, f"{self.dumpfile}_temp")
-                    return errors      
+                        return errors      
 
         allres = {'params': new_params,
                   'potrms': 0,
@@ -2030,7 +2050,10 @@ polar-eps         1e-06
             nfactor -= 1
         
         if nterms < 3:
-            nfactor *= 0.5
+            if 'chgtrn' not in termfit:
+                nfactor *= 0.05
+            else:
+                nfactor *= 0.5
         
         if self.do_ccsdt_dimers or self.computeall:
             calc_components, errors = self.compute_ccsdt_dimer()
@@ -2107,7 +2130,11 @@ polar-eps         1e-06
             testerr = np.abs(errors)[:,4]
             testerr = np.sort(testerr)[::-1]
             # err = testerr.mean()+testerr[:ndim].mean()
-            err = testerr.sum()
+
+            if nterms < 3 and 'chgtrn' not in termfit:
+                err = (1/nfactor)*np.abs(testerr).mean()
+            else:
+                err = np.abs(testerr).sum()
             errlist.append(nfactor*err)
             errloc.append(nfactor*err)
 
@@ -2221,7 +2248,7 @@ polar-eps         1e-06
 
         return errors
 
-    def fit_data(self,optimizer='genetic',fitliq=False,testliq=False,diffstep=0.01):
+    def fit_data(self,optimizer='genetic',fitliq=False,testliq=False,diffstep=0.01,wide_range=False):
         os.chdir(self.basedir)
 
         n = self.molnumber
@@ -2243,25 +2270,117 @@ polar-eps         1e-06
         bounds = []
         fail = False
 
-        if optimizer == 'genetic':
+        ubounds = np.zeros(initprms.shape[0])
+        lbounds = np.zeros(initprms.shape[0])
+
+        for w,term in enumerate(termfit):
+            prm = initprms[inds[w][0]:inds[w][1]]
+            tlbound = np.ones(prm.shape[0]) 
+            tubound = np.ones(prm.shape[0]) 
+
+            if not wide_range:
+                for k,brm in enumerate(prm):
+                    if brm < 0:
+                        tlbound[k] *= 2*brm
+                        tubound[k] *= 0.1*brm
+                    elif brm < 5:
+                        tlbound[k] *= 0.9*brm
+                        tubound[k] *= 1.1*brm
+                    else:
+                        tlbound[k] *= 0.7*brm
+                        tubound[k] *= 1.3*brm
+                
+
+                tlbound = tlbound.flatten()
+                tubound = tubound.flatten()
+                
+                lbounds[inds[w][0]:inds[w][1]] += tlbound
+                ubounds[inds[w][0]:inds[w][1]] += tubound
+                continue
+
+            # print(term,termfit,prm.shape)
+            # sys.stdout.flush()
+            if term == 'repulsion':
+                prm1 = np.reshape(prm,(ntyps,3))
+
+                tlbound = np.ones(prm1.shape)
+                tubound = np.ones(prm1.shape)
+
+                tlbound[:,0] *= 5       # lowest allowed value for K_rep
+                tlbound[:,1] *= 2.0     # lowest allowed value for alpha_rep
+                tlbound[:,2] *= 0.0001  # lowest allowed value for q_rep
+
+                tubound[:,0] *= 54      # highest allowed value for K_rep
+                tubound[:,1] *= 6.0     # highest allowed value for alpha_rep
+                tubound[:,2] *= 10      # highest allowed value for q_rep
+
+            elif term == 'dispersion':
+                tlbound *= 0.0001  # lowest allowed value for K_disp
+                tubound *= 80      # highest allowed value for K_disp
+
+            elif term == 'chgpen':
+                tlbound *= 2.0     # lowest allowed value for alpha_cpen
+                tubound *= 7.0     # highest allowed value for alpha_cpen
+
+            elif term == 'chgtrn':
+                z = 0
+                for k,val in enumerate(self.prmdict['chgtrn']):
+                    for i,v in enumerate(val):
+                        testv = self.init_ct[k][i]
+                        if testv != 0:
+                            if i == 0:
+                                tlbound[z] *= 0.001 # lowest allowed value for K_ct
+                                tubound[z] *= 20    # highest allowed value for K_ct
+                            else:
+                                tlbound[z] *= 2.0   # lowest allowed value for alpha_ct
+                                tubound[z] *= 7.0   # highest allowed value for alpha_ct
+                            z+=1
             
-            for brm in initprms:
-                # if brm == 0:
-                #     bounds.append((-1e-3,1e-3))
+            else:
+                for k,brm in enumerate(prm):
+                    if brm < 0:
+                        tlbound[k] *= 2*brm
+                        tubound[k] *= -2*brm
+                    elif brm > 0 and brm < 2:
+                        tlbound[k] *= 0.7*brm
+                        tubound[k] *= 1.3*brm
+                    else:
+                        tlbound[k] *= 0.5*brm
+                        tubound[k] *= 1.5*brm
+
+            tlbound = tlbound.flatten()
+            tubound = tubound.flatten()
+            
+            lbounds[inds[w][0]:inds[w][1]] += tlbound
+            ubounds[inds[w][0]:inds[w][1]] += tubound
+
+            for ii,val in enumerate(prm):
+                if val > tubound[ii]:
+                    initprms[inds[w][0]+ii] = tubound[ii]
+                if val < tlbound[ii]:
+                    initprms[inds[w][0]+ii] = tlbound[ii]
+
+        if optimizer == 'genetic':
+            # for brm in initprms:
+            #     # if brm == 0:
+            #     #     bounds.append((-1e-3,1e-3))
                     
-                if brm > 10 and brm < 40:
-                    bounds.append((round1(brm*0.70),round1(brm*1.30)))
+            #     if brm > 10 and brm < 40:
+            #         bounds.append((round1(brm*0.70),round1(brm*1.30)))
                 
-                elif brm > 40:
-                    bounds.append((round1(brm*0.95),round1(brm*1.05)))
+            #     elif brm > 40:
+            #         bounds.append((round1(brm*0.95),round1(brm*1.05)))
                     
-                elif brm < 0.0:
-                    bounds.append((round1(brm*1.30),round1(-brm*0.7)))
+            #     elif brm < 0.0:
+            #         bounds.append((round1(brm*1.30),round1(-brm*0.7)))
                 
-                elif brm > 0 and brm < 0.4:
-                    bounds.append((round1(-brm*0.7),round1(brm*1.30)))
-                else:
-                    bounds.append((round1(brm*0.80),round1(brm*1.20)))
+            #     elif brm > 0 and brm < 0.4:
+            #         bounds.append((round1(-brm*0.7),round1(brm*1.30)))
+            #     else:
+            #         bounds.append((round1(brm*0.80),round1(brm*1.20)))
+
+            for lb,ub in zip(lbounds,ubounds):
+                bounds.append((round1(lb),round1(ub)))
 
             try:
                 opt = optimize.differential_evolution(self.optimize_prms,bounds)
@@ -2269,75 +2388,6 @@ polar-eps         1e-06
                 fail = True
         else:
             ## make bounds
-            ubounds = np.zeros(initprms.shape[0])
-            lbounds = np.zeros(initprms.shape[0])
-
-            for w,term in enumerate(termfit):
-                prm = initprms[inds[w][0]:inds[w][1]]
-                tlbound = np.ones(prm.shape[0]) 
-                tubound = np.ones(prm.shape[0]) 
-
-                # print(term,termfit,prm.shape)
-                # sys.stdout.flush()
-                if term == 'repulsion':
-                    prm1 = np.reshape(prm,(ntyps,3))
-
-                    tlbound = np.ones(prm1.shape)
-                    tubound = np.ones(prm1.shape)
-
-                    tlbound[:,0] *= 5       # lowest allowed value for K_rep
-                    tlbound[:,1] *= 2.5     # lowest allowed value for alpha_rep
-                    tlbound[:,2] *= 0.0001  # lowest allowed value for q_rep
-
-                    tubound[:,0] *= 54      # highest allowed value for K_rep
-                    tubound[:,1] *= 6.5     # highest allowed value for alpha_rep
-                    tubound[:,2] *= 10      # highest allowed value for q_rep
-
-                elif term == 'dispersion':
-                    tlbound *= 0.0001  # lowest allowed value for K_disp
-                    tubound *= 80      # highest allowed value for K_disp
-
-                elif term == 'chgpen':
-                    tlbound *= 2.0     # lowest allowed value for alpha_cpen
-                    tubound *= 6.5      # highest allowed value for alpha_cpen
-
-                elif term == 'chgtrn':
-                    z = 0
-                    for k,val in enumerate(self.prmdict['chgtrn']):
-                        for i,v in enumerate(val):
-                            testv = self.init_ct[k][i]
-                            if testv != 0:
-                                if i == 0:
-                                    tlbound[z] *= 0.001 # lowest allowed value for K_ct
-                                    tubound[z] *= 30    # highest allowed value for K_ct
-                                else:
-                                    tlbound[z] *= 2.0   # lowest allowed value for alpha_ct
-                                    tubound[z] *= 7.0   # highest allowed value for alpha_ct
-                                z+=1
-                
-                else:
-                    for k,brm in enumerate(prm):
-                        if brm < 0:
-                            tlbound[k] *= 2*brm
-                            tubound[k] *= -2*brm
-                        elif brm > 0 and brm < 2:
-                            tlbound[k] *= 0.7*brm
-                            tubound[k] *= 1.3*brm
-                        else:
-                            tlbound[k] *= 0.5*brm
-                            tubound[k] *= 1.5*brm
-
-                tlbound = tlbound.flatten()
-                tubound = tubound.flatten()
-                
-                lbounds[inds[w][0]:inds[w][1]] += tlbound
-                ubounds[inds[w][0]:inds[w][1]] += tubound
-
-                for ii,val in enumerate(prm):
-                    if val > tubound[ii]:
-                        initprms[inds[w][0]+ii] = tubound[ii]
-                    if val < tlbound[ii]:
-                        initprms[inds[w][0]+ii] = tlbound[ii]
             
             # try:
             opt = optimize.least_squares(self.optimize_prms,initprms,
