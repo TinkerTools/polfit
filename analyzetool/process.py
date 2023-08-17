@@ -65,6 +65,7 @@ mw_elements = {'H': 1.00794, 'He': 4.002602, 'Li': 6.941,
                'ZERO': 0} 
 
 def save_pickle(dict_,outfn=None):
+    """Function to save .pickle python dictionary and objects"""
     if outfn == None:
         my_var_name = [ k for k,v in locals().iteritems() if v == dict_][0]
         outfn = my_var_name
@@ -73,6 +74,7 @@ def save_pickle(dict_,outfn=None):
     pickle_out.close()
     
 def load_pickle(filenm):
+    """Function to load .pickle python dictionary and objects"""
     pickle_in = open(filenm,"rb")
     example_dict = pickle.load(pickle_in)
     pickle_in.close()
@@ -205,10 +207,13 @@ def next_folder_number(savedir,basenm,isdir=False,makedir=False):
     
     nums = [0]
     for a in files:
-        nk1 = int(a.split('-')[-1])
-        nums.append(nk1)
+        try:
+            nk1 = int(a.split('-')[-1])
+            nums.append(nk1)
+        except:
+            None
     nums = sorted(nums)
-    fnm = f"res-{nums[-1]+1}"
+    fnm = f"{basenm}-{nums[-1]+1}"
 
     if isdir and makedir:
         if not os.path.isdir(f"{savedir}/{fnm}"):
