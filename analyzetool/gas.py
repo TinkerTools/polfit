@@ -80,6 +80,9 @@ class GasLog(object):
             if halfp > 500:
                 halfp = 500
 
+            self.H = self.PE[halfp:]+self.KE[halfp:]
+            self.avgH = self.H.mean()
+
             self.PE = self.PE[halfp:]
             self.avgPE = self.PE.mean()
             self.stdPE = self.PE.std()
@@ -87,6 +90,7 @@ class GasLog(object):
             self.KE = np.array(kdyn)
             self.KE = reject_outliers(self.KE[halfp:])
             self.avgKE = self.KE.mean()
+
             
 
             error.append(False)
