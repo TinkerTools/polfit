@@ -16,7 +16,9 @@ from matplotlib.ticker import AutoMinorLocator
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 import matplotlib.gridspec as gridspec
 
-datadir = "~/HIPPO/small_molecules/org_molecules/reference-data"
+
+datadir = "/home/roseane/HIPPO/small_molecules/org_molecules/reference-data"
+
 prmdir = f"{datadir}/prmfiles"
 
 dbase_info = f"{datadir}/database-info"
