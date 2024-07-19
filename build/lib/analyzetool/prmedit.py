@@ -85,6 +85,18 @@ induce-15-scale         1.0
 ##                                    ##
 ########################################""",
 
+"vdw": """####################################
+##                                ##
+##    Van der Waals Parameters    ##
+##                                ##
+####################################""",
+
+"charge": """########################################
+##                                    ##
+##  Atomic Partial Charge Parameters  ##
+##                                    ##
+########################################""",
+
 "chgpen": """#####################################
 ##                                 ##
 ##  Charge Penetration Parameters  ##
@@ -127,6 +139,12 @@ induce-15-scale         1.0
 ##                                ##
 ####################################""",
 
+"ureybrad": """####################################
+##                                ##
+##     Urey-Bradley Parameters    ##
+##                                ##
+####################################""",
+
 "opbend": """####################################
 ##                                ##
 ##  Out-of-Plane Bend Parameters  ##
@@ -138,6 +156,12 @@ induce-15-scale         1.0
 ##      Torsional Parameters      ##
 ##                                ##
 ####################################""",
+
+"imptors": """#####################################
+##                                 ##
+##  Improper Torsional Parameters  ##
+##                                 ##
+#####################################""",
 
 "cflux": """####################################
 ##                                ##
@@ -272,6 +296,11 @@ def process_prm(prmfn):
     aflx = prmfile[nstart:][bg[nstart:]=='angcf']
     exchp = prmfile[nstart:][bg[nstart:]=='exchp']
     
+    vdwt = prmfile[nstart:][bg[nstart:]=='vdw  ']
+    chg = prmfile[nstart:][bg[nstart:]=='charg']
+    itor = prmfile[nstart:][bg[nstart:]=='impto']
+    urey = prmfile[nstart:][bg[nstart:]=='ureyb']
+
     minds = np.where('multi' == bg)[0]
     
     mlines = []
@@ -291,6 +320,8 @@ def process_prm(prmfn):
     bndcflux = [[],[]]
     angcflux = [[],[]]
     exchpol = []
+    imptors = [[],[]]
+    ureybrad = [[],[],[]]
 
     typcls = {}
     tclasses = []
@@ -319,6 +350,9 @@ def process_prm(prmfn):
     repulsion = np.zeros((nclas,3))
     chgtrn = np.zeros((nclas,2))
     polarize = [[0]*natms,[0]*natms]
+
+    charge = np.zeros(nclas)
+    vdw = np.zeros((nclas,2))
     for k in range(nclas):
         if len(cpen) > 0:
             tl = int(cpen[k].split()[1])
@@ -347,22 +381,36 @@ def process_prm(prmfn):
             v1 = float(ctrn[k].split()[2])
             v2 = float(ctrn[k].split()[3])
             chgtrn[i] = [v1,v2]
-    
-    for k in range(natms):
-        s = pol[k].split()
-        i = atmpos[int(s[1])]
-        v1 = float(s[2])
-        polarize[0][i] = v1
 
-        ## test for amoeba 0.39 in polarize
-        if len(s) > 3:
-            itest = float(s[3])
-            if itest.is_integer():
-                con = [int(a) for a in s[3:]]
-            else:
-                con = [int(a) for a in s[4:]]
-            polarize[1][i] = con
-            ##
+        if len(vdwt) > 0:
+            tl = int(vdwt[k].split()[1])
+            i = clspos[tl]
+            v1 = float(vdwt[k].split()[2])
+            v2 = float(vdwt[k].split()[3])
+            vdw[i] = [v1,v2]
+
+        if len(chg) > 0:
+            tl = int(chg[k].split()[1])
+            i = clspos[tl]
+            v1 = float(chg[k].split()[2])
+            charge[i] = v1
+    
+    if len(pol) > 0:
+        for k in range(natms):
+            s = pol[k].split()
+            i = atmpos[int(s[1])]
+            v1 = float(s[2])
+            polarize[0][i] = v1
+
+            ## test for amoeba 0.39 in polarize
+            if len(s) > 3:
+                itest = float(s[3])
+                if itest.is_integer():
+                    con = [int(a) for a in s[3:]]
+                else:
+                    con = [int(a) for a in s[4:]]
+                polarize[1][i] = con
+                ##
 
     if len(mlines) > 0:    
         for i,line in enumerate(mlines[::5]):
@@ -390,7 +438,7 @@ def process_prm(prmfn):
         
     for line in angl:
         s = line.split()
-        typs = s[1:4]
+        typs = [int(bb) for bb in s[1:4]]
         val = [float(a) for a in s[4:6]]
         angle[0].append(typs)
         angle[1].append(val[0])
@@ -409,6 +457,13 @@ def process_prm(prmfn):
         strbnd[1].append(val[0])
         strbnd[2].append(val[1])
     
+    for line in urey:
+        typs = line.split()[1:4]
+        val = [float(a) for a in line.split()[4:6]]
+        ureybrad[0].append(typs)
+        ureybrad[1].append(val[0])
+        ureybrad[2].append(val[1])
+
     for line in opbe:
         typs = line.split()[1:5]
         val = float(line.split()[5])
@@ -420,6 +475,12 @@ def process_prm(prmfn):
         val = [float(a) for a in line.split()[5:]]
         torsion[0].append(typs)
         torsion[1].append(val)
+
+    for line in itor:
+        typs = line.split()[1:5]
+        val = [float(a) for a in line.split()[5:]]
+        imptors[0].append(typs)
+        imptors[1].append(val)
 
     for line in bflx:
         typs = line.split()[1:3]
@@ -447,8 +508,12 @@ def process_prm(prmfn):
             'bond': bond,
             'angle': angle,
             'strbnd': strbnd,
+            'ureybrad': ureybrad,
             'opbend': opbend,
             'torsion': torsion,
+            'imptors': imptors,
+            'charge': charge,
+            'vdw': vdw,
             'chgpen': chgpen,
             'dispersion': dispersion,
             'repulsion': repulsion,
@@ -521,13 +586,13 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
         term = line[0]
         s = line[1]
         if term == 'bond':
-            typs = s[1:3]
+            typs = [int(bb) for bb in s[1:3]]
             val = [float(a) for a in s[3:5]]
             bond[0].append(typs)
             bond[1].append(val[0])
             bond[2].append(val[1])
         if term == 'angle':
-            typs = s[1:4]
+            typs = [int(bb) for bb in s[1:4]]
             val = [float(a) for a in s[4:6]]
             angle[0].append(typs)
             angle[1].append(val[0])
@@ -538,30 +603,30 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
             else:
                 angle[3].append("")
         if term == 'strbnd':
-            typs = s[1:4]
+            typs = [int(bb) for bb in s[1:4]]
             val = [float(a) for a in s[4:6]]
             strbnd[0].append(typs)
             strbnd[1].append(val[0])
             strbnd[2].append(val[1])
         if term == 'opbend':
-            typs = s[1:5]
+            typs = [int(bb) for bb in s[1:5]]
             val = float(s[5])
             opbend[0].append(typs)
             opbend[1].append(val)
         if term == 'torsion':
-            typs = s[1:5]
+            typs = [int(bb) for bb in s[1:5]]
             val = [float(a) for a in s[5:]]
             torsion[0].append(typs)
             torsion[1].append(val)
         if term == 'bndcflux':
-            typs = s[1:3]
+            typs = [int(bb) for bb in s[1:3]]
             val = float(s[3])
             if np.isnan(val):
                 val = 0.0
             bndcflux[0].append(typs)
             bndcflux[1].append(val)
         if term == 'angcflux':
-            typs = s[1:4]
+            typs = [int(bb) for bb in s[1:4]]
             val = [float(a) for a in s[4:]]
             for ii,a in enumerate(val):
                 if np.isnan(a):
@@ -891,165 +956,223 @@ def write_prm(prmdict,fnout,mfactors=[]):
         prmfile += aline 
     
     term = "multipole"
-    prmfile += '\n\n'+headers[term]+'\n\n\n'
-    # get charge factors
-    factors = []
-    if 'multipole_factors' in prmdict.keys():
-        factors = np.array(prmdict['multipole_factors'],dtype=int)
-    if len(mfactors) != 0:
-        factors = np.array(mfactors,dtype=int)    
-    if len(factors) == 0:
-        factors = multipole_factors(prmdict)
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n\n'
+        # get charge factors
+        factors = []
+        if 'multipole_factors' in prmdict.keys():
+            factors = np.array(prmdict['multipole_factors'],dtype=int)
+        if len(mfactors) != 0:
+            factors = np.array(mfactors,dtype=int)    
+        if len(factors) == 0:
+            factors = multipole_factors(prmdict)
 
-    nmpol = factors.shape[0]
-    l = ""
-    for k in range(nmpol-1):
-        if k != 0:
-            l+='+'
-        if factors[k] == 1:
-            l += f'c{k+1}'
-        else:
-            l += f'{factors[k]}*c{k+1}'
-    for k,v in enumerate(prmdict[term][1]):
-        v2 = prmdict[term][0][k]
-        c = ""
-        for ts in v2:
-            c += f"{int(ts):4d} "
-        
-        first_line = f"{term:11s}{c:<27s}{v[0]:10.6f}\n"
-        if k == nmpol-1:
-            if nmpol == 2:
-                first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -{l}"
-            elif nmpol > 2:
-                first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -({l})"
-            if factors[k] > 1:
-                first_line += f"/{factors[k]}\n"
+        nmpol = factors.shape[0]
+        l = ""
+        for k in range(nmpol-1):
+            if k != 0:
+                l+='+'
+            if factors[k] == 1:
+                l += f'c{k+1}'
             else:
-                first_line += f"\n"
+                l += f'{factors[k]}*c{k+1}'
+        for k,v in enumerate(prmdict[term][1]):
+            v2 = prmdict[term][0][k]
 
-        prmfile += first_line
-        prmfile += f"{' ':38s}{v[1]:10.6f} {v[2]:10.6f} {v[3]:10.6f}\n"
-        prmfile += f"{' ':38s}{v[4]:10.6f}\n"
-        prmfile += f"{' ':38s}{v[5]:10.6f} {v[6]:10.6f}\n"
-        v9 = -(v[4]+v[6])
-        prmfile += f"{' ':38}{v[7]:10.6f} {v[8]:10.6f} {v9:10.6f}\n"
-    
-    # Multipole factors line
-    l = f"[ {factors[0]}"
-    for k,fc in enumerate(factors):
-        if k > 0:
-            l += f",{fc}"
-    prmfile += f"## multipole_factors = {l} ] \n"
+            if isinstance(v2,str):
+                v2 = v2.split()
+            c = ""
+            for ts in v2:
+                c += f"{int(ts):4d} "
+            
+            first_line = f"{term:11s}{c:<27s}{v[0]:10.6f}\n"
+            if k == nmpol-1:
+                if nmpol == 2:
+                    first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -{l}"
+                elif nmpol > 2:
+                    first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -({l})"
+                if factors[k] > 1:
+                    first_line += f"/{factors[k]}\n"
+                else:
+                    first_line += f"\n"
+
+            prmfile += first_line
+            prmfile += f"{' ':38s}{v[1]:10.6f} {v[2]:10.6f} {v[3]:10.6f}\n"
+            prmfile += f"{' ':38s}{v[4]:10.6f}\n"
+            prmfile += f"{' ':38s}{v[5]:10.6f} {v[6]:10.6f}\n"
+            v9 = -(v[4]+v[6])
+            prmfile += f"{' ':38}{v[7]:10.6f} {v[8]:10.6f} {v9:10.6f}\n"
+        
+        # Multipole factors line
+        l = f"[ {factors[0]}"
+        for k,fc in enumerate(factors):
+            if k > 0:
+                l += f",{fc}"
+        prmfile += f"## multipole_factors = {l} ] \n"
 
     term = 'polarize'
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k in sorttypes:
-        t = prmdict['types'][k]
-        v = prmdict[term][0][k]
-        v2 = prmdict[term][1][k]
-        c = ""
+    if np.sum(prmdict[term]) != 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k in sorttypes:
+            t = prmdict['types'][k]
+            v = prmdict[term][0][k]
+            v2 = prmdict[term][1][k]
+            c = ""
 
-        if isinstance(v2,list):
-            for ts in v2:
-                c += f"  {int(ts):3d}"
-        prmfile += f"{term:16s} {t:<11d}{v:10.6f}{c}\n"
+            if isinstance(v2,list):
+                for ts in v2:
+                    c += f"  {int(ts):3d}"
+            prmfile += f"{term:16s} {t:<11d}{v:10.6f}{c}\n"
 
+    term = "charge"
+    if np.sum(prmdict[term]) != 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k in sorttypes:
+            tt = prmdict['types'][k]
+            t = typcls[tt]
+            v = prmdict[term][k]
+            prmfile += f"{term:16s} {t:<11d}{v:10.6f}\n"
+
+    term = "vdw"
+    if np.sum(prmdict[term]) != 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k in sorttypes:
+            tt = prmdict['types'][k]
+            t = typcls[tt]
+            v = prmdict[term][k]
+            prmfile += f"{term:16s} {t:<11d}{v[0]:8.4f} {v[1]:12.6f}\n"
+    
     term = "chgpen"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k in sorttypes:
-        tt = prmdict['types'][k]
-        t = typcls[tt]
-        v = prmdict[term][k]
-        prmfile += f"{term:16s} {t:<11d}{v[0]:8.4f} {v[1]:12.6f}\n"
+    if np.sum(prmdict[term]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k in sorttypes:
+            tt = prmdict['types'][k]
+            t = typcls[tt]
+            v = prmdict[term][k]
+            prmfile += f"{term:16s} {t:<11d}{v[0]:8.4f} {v[1]:12.6f}\n"
 
     term = "dispersion"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k in sorttypes:
-        tt = prmdict['types'][k]
-        t = typcls[tt]
-        cp = prmdict["chgpen"][k][1]
-        v = prmdict[term][k]
-        prmfile += f"{term:16s} {t:<11d}{v:10.6f} {cp:10.6f}\n"
+    if np.sum(prmdict[term]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k in sorttypes:
+            tt = prmdict['types'][k]
+            t = typcls[tt]
+            cp = prmdict["chgpen"][k][1]
+            v = prmdict[term][k]
+            prmfile += f"{term:16s} {t:<11d}{v:10.6f} {cp:10.6f}\n"
 
     term = "repulsion"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k in sorttypes:
-        tt = prmdict['types'][k]
-        t = typcls[tt]
-        v = prmdict[term][k]
-        prmfile += f"{term:16s} {t:<11d}{v[0]:10.6f} {v[1]:10.6f} {v[2]:10.6f}\n"
+    if np.sum(prmdict[term]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k in sorttypes:
+            tt = prmdict['types'][k]
+            t = typcls[tt]
+            v = prmdict[term][k]
+            prmfile += f"{term:16s} {t:<11d}{v[0]:10.6f} {v[1]:10.6f} {v[2]:10.6f}\n"
 
     term = "chgtrn"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k in sorttypes:
-        tt = prmdict['types'][k]
-        t = typcls[tt]
-        v = prmdict[term][k][0]
-        c = prmdict[term][k][1]
-        prmfile += f"{term:16s} {t:<11d}{v:10.6f} {c:10.6f}\n"
+    if np.sum(prmdict[term]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k in sorttypes:
+            tt = prmdict['types'][k]
+            t = typcls[tt]
+            v = prmdict[term][k][0]
+            c = prmdict[term][k][1]
+            prmfile += f"{term:16s} {t:<11d}{v:10.6f} {c:10.6f}\n"
 
     term = "bond"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    # if term in prmdict.keys():
-    for k,v in enumerate(prmdict[term][1]):
-        v1 = [int(a) for a in prmdict[term][0][k]]
-        c = f"{v1[0]:3d}  {v1[1]:3d}"
-        v2 = prmdict[term][2][k]
-        prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.6f}\n"
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}"
+            v2 = prmdict[term][2][k]
+            prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.6f}\n"
     
     term = "angle"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k,v in enumerate(prmdict[term][1]):
-        v1 = [int(a) for a in prmdict[term][0][k]]
-        c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}"
-        v2 = prmdict[term][2][k]
-        v3 = prmdict[term][3][k]
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}"
+            v2 = prmdict[term][2][k]
+            v3 = prmdict[term][3][k]
 
-        prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.3f}"
-        if len(v3) > 0:
-            prmfile += f" {v3:10s}\n"
-        else:
-            prmfile += '\n'
+            prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.3f}"
+            if len(v3) > 0:
+                prmfile += f" {v3:10s}\n"
+            else:
+                prmfile += '\n'
         
     term = "strbnd"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k,v in enumerate(prmdict[term][1]):
-        v1 = [int(a) for a in prmdict[term][0][k]]
-        c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}"
-        v2 = prmdict[term][2][k]
-        prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.6f}\n"
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}"
+            v2 = prmdict[term][2][k]
+            prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.6f}\n"
+
+    term = "ureybrad"
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}"
+            v2 = prmdict[term][2][k]
+            prmfile += f"{term:12s}{c:<16s}{v:10.6f} {v2:10.6f}\n"
 
     term = "opbend"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k,v in enumerate(prmdict[term][1]):
-        v1 = [int(a) for a in prmdict[term][0][k]]
-        c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}  {v1[3]:3d}"
-        prmfile += f"{term:12s}{c:<25s} {v:12.6f}\n"
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}  {v1[3]:3d}"
+            prmfile += f"{term:12s}{c:<25s} {v:12.6f}\n"
     
     term = "torsion"
-    prmfile += '\n\n'+headers[term]+'\n\n'
-    for k,v in enumerate(prmdict[term][1]):
-        v1 = [int(a) for a in prmdict[term][0][k]]
-        c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}  {v1[3]:3d}"
-        lin = f"{term:12s}{c:<25s} "
-        for i in range(0,len(v),3):
-            v1 = v[i]
-            v2 = v[i+1]
-            v3 = int(v[i+2])
-            lin += f"{v1:7.3f} {v2:2.1f} {v3:d}"
-        prmfile += lin + '\n'
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            if np.sum(v1) == 0:
+                continue
+            c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}  {v1[3]:3d}"
+            lin = f"{term:12s}{c:<25s} "
+            for i in range(0,len(v),3):
+                v1 = v[i]
+                v2 = v[i+1]
+                v3 = int(v[i+2])
+                lin += f"{v1:7.3f} {v2:2.1f} {v3:d}"
+            prmfile += lin + '\n'
+    
+    term = "imptors"
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers[term]+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}  {v1[3]:3d}"
+            lin = f"{term:12s}{c:<25s} "
+            for i in range(0,len(v),3):
+                v1 = v[i]
+                v2 = v[i+1]
+                v3 = int(v[i+2])
+                lin += f"{v1:7.3f} {v2:2.1f} {v3:d}"
+            prmfile += lin + '\n'
 
     term = "bndcflux"
-    prmfile += '\n\n'+headers['cflux']+'\n\n'
-    for k,v in enumerate(prmdict[term][1]):
-        v1 = [int(a) for a in prmdict[term][0][k]]
-        c = f"{v1[0]:3d}  {v1[1]:3d}"
-        prmfile += f"{term:12s}{c:<16s}{v:10.6f}\n"
+    if len(prmdict[term][0]) > 0:
+        prmfile += '\n\n'+headers['cflux']+'\n\n'
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}"
+            prmfile += f"{term:12s}{c:<16s}{v:10.6f}\n"
     term = "angcflux"
-    for k,v in enumerate(prmdict[term][1]):
-        v1 = [int(a) for a in prmdict[term][0][k]]
-        c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}"
-        prmfile += f"{term:12s}{c:<16s}{v[0]:10.6f} {v[1]:10.6f} {v[2]:10.6f} {v[3]:10.6f}\n"
+    if len(prmdict[term][0]) > 0:
+        for k,v in enumerate(prmdict[term][1]):
+            v1 = [int(a) for a in prmdict[term][0][k]]
+            c = f"{v1[0]:3d}  {v1[1]:3d}  {v1[2]:3d}"
+            prmfile += f"{term:12s}{c:<16s}{v[0]:10.6f} {v[1]:10.6f} {v[2]:10.6f} {v[3]:10.6f}\n"
 
     term = 'exchpol'
     if len(prmdict[term]) > 0:
@@ -1139,17 +1262,18 @@ def update_types(newprms,maptypes,mapclas=None,fnout=None):
         atmline[0] = newcl
         atoms.append(atmline)
         #polarize
-        if isinstance(newprms['polarize'][1][oldk],list):
-            v1 = [int(a) for a in newprms['polarize'][1][oldk]]
-            vnew = [maptypes[a] for a in v1]
-            polarize[1][k] = vnew
+        if len(newprms['polarize'][1]) > 0:
+            if isinstance(newprms['polarize'][1][oldk],list):
+                v1 = [int(a) for a in newprms['polarize'][1][oldk]]
+                vnew = [maptypes[a] for a in v1]
+                polarize[1][k] = vnew
 
-        polarize[0][k] = newprms['polarize'][0][oldk]
+            polarize[0][k] = newprms['polarize'][0][oldk]
     
     updprms['polarize'] = polarize
     updprms['atom'] = atoms
 
-    nparrays = ['chgpen','dispersion','repulsion','chgtrn']
+    nparrays = ['vdw','charge','chgpen','dispersion','repulsion','chgtrn']
 
     ncls = len(classes)
     for k,oldk in enumerate(clspos):
@@ -1157,7 +1281,7 @@ def update_types(newprms,maptypes,mapclas=None,fnout=None):
             updprms[term][k] = newprms[term][oldk].copy()
 
 
-    terms_update = ['bond', 'angle', 'strbnd', 'opbend', 'torsion','bndcflux', 'angcflux']
+    terms_update = ['bond', 'angle', 'strbnd', 'ureybrad','opbend', 'torsion','imptors', 'bndcflux', 'angcflux']
     for term in terms_update:
         for k,line in enumerate(newprms[term][0]):
             v = [int(a) for a in line]
@@ -1198,7 +1322,7 @@ def combine_params(dictlist,molnames,fnout=None):
         newname = f'"{nm}_{atomnm}"'
         newdict['atom'][k][2] = newname
 
-    nparrays = ['chgpen','dispersion','repulsion','chgtrn','exchpol']
+    nparrays = ['vdw','charge','chgpen','dispersion','repulsion','chgtrn','exchpol']
     for n in range(1,nmols):
         nm = molnames[n]
         prmdict = dictlist[n]
@@ -1225,13 +1349,12 @@ def combine_params(dictlist,molnames,fnout=None):
             elif term == 'typcls':
                 for t,cl in vals.items():
                     newdict[term][t] = cl
+            elif term == 'multipole_factors':
+                newdict[term] += vals
             else:
                 for k in range(len(vals)):
                     newdict[term][k] += vals[k]
 
-
-        
-    
     for n in range(1,nmols):
         nm = molnames[n]
         prmdict = dictlist[n]

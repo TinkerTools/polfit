@@ -2,6 +2,7 @@ from ast import Delete
 import numpy as np
 import pickle
 import os
+from . import prmedit
 
 avogadro=6.02214076e23
 lightspd=2.99792458e-2
@@ -106,6 +107,42 @@ def count_atoms(fn):
 
     return c   
 
+def compute_center_of_mass(fname="dimer.arc",natms=[]):
+    """Give a dimer xyz or arc, returns center of mass of each monomer and the structure center of mass"""
+    
+    arcf = ARC(fname)
+    arcf.read_arc_file()
+    coords = arcf.arcxyz
+    
+    if len(natms) == 0:
+        natm = coords[0].shape[0]
+        n1 = int(natm/2)
+        n2 = n1
+    else:
+        n1 = natms[0]
+        n2 = natms[1]
+    
+    xyz0,atommap = prmedit.read_xyz_file(fname)
+    masses = np.array([mw_elements[a[1]] for a in atommap])
+    
+    coords = arcf.arcxyz
+
+    if len(coords) == 0:
+        if len(xyz0) != 0:
+            coords = np.reshape(xyz0,[1,xyz0.shape[0],3])
+        else:
+            return 0,0,0
+    
+    cm = np.zeros((coords.shape))
+    for i in range(3):
+        cm[:,:,i] += coords[:,:,i] * masses
+    
+    cm1 = cm[:,:n1,:].sum(axis=1)/masses[:n1].sum()
+    cm2 = cm[:,n1:,:].sum(axis=1)/masses[n1:].sum()
+    fcm = cm.sum(axis=1)/masses.sum()
+    
+    return cm1,cm2,fcm
+
 def num_molecules(box_size,mw,dens):
     """Needs (box_size (Angstroms),molecular_weight ((g/mol),density (g/ml))
     returns number of molecules"""
@@ -158,6 +195,86 @@ def read_in_chunks(file_object, chunk_size=1024):
             break
         yield data
 
+def next_folder_number(savedir,basenm,isdir=False,makedir=False):
+    files0 = next(os.walk(savedir))
+
+    if isdir:
+        files = [a for a in files0[1] if f'{basenm}' in a]
+    else:
+        files = [a for a in files0[2] if f'{basenm}' in a]
+    
+    nums = [0]
+    for a in files:
+        try:
+            nk1 = int(a.split('-')[-1])
+            nums.append(nk1)
+        except:
+            None
+    nums = sorted(nums)
+    fnm = f"{basenm}-{nums[-1]+1}"
+
+    if isdir and makedir:
+        if not os.path.isdir(f"{savedir}/{fnm}"):
+            os.mkdir(f"{savedir}/{fnm}")
+
+    return nums[-1]+1,f"{savedir}/{fnm}"
+
+def read_all_arc(xyzfn):
+    if isinstance(xyzfn,list):
+        thefile = xyzfn
+        openfile = False
+    else:
+        test = xyzfn.split('\n')
+        if len(test) > 2:
+            thefile = xyzfn.split('\n')
+            openfile = False
+        else:
+            if os.path.isfile(xyzfn):
+                openfile = True
+            else:
+                print("XYZ file does not exist!")
+                return
+
+    if openfile:
+        thefile = []
+        lread = 0
+        f = open(xyzfn)
+        for a in range(3):
+            thefile += f.readline()
+            lread+=1
+        f.close()
+
+        thefile = "".join(thefile)
+        thefile = thefile.split('\n')
+    
+    test = thefile[2].split()[0]
+    if test.isdigit():
+        st = 1
+        ni = 1
+    else:
+        st = 2
+        ni = 0
+
+    natms = int(thefile[0].split()[0])
+    nlines = st+natms
+
+    if openfile:
+        lread = 0
+        full = []
+        with open(xyzfn) as thefile:
+            for line in thefile:
+                if line != '\n':
+                    full.append(line)
+                    lread += 1
+        
+        nframes = lread/nlines
+        thefile = full
+    else:
+        thefile = [a for a in thefile if a != '\n']
+        nframes = len(thefile)/nlines
+    
+    return np.reshape(np.array(thefile),(int(nframes),nlines))
+
 type_map = {"CA": "C", "HA": "H"}
 class ARC:
     def __init__(self,filenm):
@@ -181,37 +298,74 @@ class ARC:
         elif self.fn[-3:] == 'xyz':
             finit = self.fn
 
-        self.read_xyz(finit)
-
-        if isARC:
-            chunk = os.path.getsize(finit)
-            self.arcxyz = []
-            self.lattice = []
-            with open(self.fn) as f:
-                aa = read_in_chunks(f,chunk)
-                for frm in aa:
-                    xyz = self.process_data(frm)
-                    self.arcxyz.append(xyz)
+        self.arcxyz = []
+        self.lattice = []
+        if not os.path.isfile(finit) and isARC:
+            full_arc = read_all_arc(self.fn)
+            for frm in full_arc:
+                xyz = self.process_data(frm)
+                self.arcxyz.append(xyz)
+                self.raw = frm
 
             self.arcxyz = np.array(self.arcxyz)
             self.nframes = self.arcxyz.shape[0]
-        self.lattice = np.array(self.lattice)
+            self.lattice = np.array(self.lattice)
+
+        elif os.path.isfile(finit) and isARC:
+            self.read_xyz(finit)
+            chunk = os.path.getsize(finit)
+            with open(self.fn) as f:
+                aa = read_in_chunks(f,chunk)
+                for frm in aa:
+                    self.raw = frm
+                    xyz = self.process_data(frm)
+                    self.arcxyz.append(xyz)
+
+                self.arcxyz = np.array(self.arcxyz)
+                self.nframes = self.arcxyz.shape[0]
+            self.lattice = np.array(self.lattice)
+        elif os.path.isfile(finit) and not isARC:
+            self.read_xyz(finit)
+        else:
+            return
 
     def process_data(self,frm):
-        data = frm.split('\n')
+        try:
+            data = frm.split('\n')
+        except:
+            data = frm
+        
+        test = data[2].split()[0]
+        if test.isdigit():
+            ni = 1
 
-        s = data[1].split()
-        self.lattice.append([float(a) for a in s])
+            test2 = data[1].split()[1]
+            try:
+                float(test2)
+                self.extra = 2
+                st = 2
+            except:
+                st = 1
+                self.extra = 1
+            
+        else:
+            self.extra = 2
+            st = 2
+            ni = 0
 
+        if ni == 1 and st == 2:
+            s = data[1].split()
+            self.lattice.append([float(a) for a in s])
+        
+        self.title = data[0]
         xyz = []
-        for line in data[self.extra:]:
+        for line in data[st:]:
             s = line.split()
             if len(s) == 0:
                 continue
-            xyz.append([float(a) for a in s[2:5]])
+            xyz.append([float(a) for a in s[ni+1:ni+4]])
 
         return xyz
-
 
     def read_xyz(self,xyzfn=None):   
         if xyzfn != None: 
@@ -256,8 +410,11 @@ class ARC:
         
         self.atom_map = np.array(self.atom_map)
         self.xyz = np.array(xyz_cords)
-        self.lattice.append(box_lattice)
-        self.lattice = np.array(self.lattice)
+        if self.pbc:
+            self.lattice.append(box_lattice)
+            self.lattice = np.array(self.lattice)
+        else:
+            self.lattice = []
             
     def compute_volume(self):        
         self.volume = []
@@ -267,3 +424,40 @@ class ARC:
         for dt in self.lattice:
             if int(dt[3]) == 90 and int(dt[4]) == 90 and int(dt[5]) == 90:
                 self.volume.append(dt[0]*dt[1]*dt[2])
+
+    def save_arc(self,frms,fnout=""):
+        final = ""
+        for frm in self.arcxyz[frms]:
+            final += self.raw[0]
+            if self.extra == 2:
+                final += self.raw[1]
+            
+            test = self.raw[2].split()
+            ni = 0
+            if test[0].isdigit():
+                ni = 1
+            
+            atommap = [a.split()[ni] for a in self.raw[self.extra:] if a != '\n']
+            template = [a.split()[5:] for a in self.raw[self.extra:] if a != '\n']
+            for k in range(frm.shape[0]):
+                el = atommap[k]
+                s = frm[k]
+                typ = int(template[k][0])
+                if ni == 1:
+                    final += f"{k+1:6d}  {el:<2s} {s[0]:12.6f} {s[1]:12.6f} {s[2]:12.6f} {typ:5d}"
+
+                    if len(template) > 1:
+                        con = [int(a) for a in template[k][1:]]   
+                        for a in con:
+                            final += f" {a:5d}"
+                    
+                    final += '\n'
+                else:
+                    final += f"{el:<2s} {s[0]:12.6f} {s[1]:12.6f} {s[2]:12.6f}\n"
+            
+        if len(fnout) > 0:
+            with open(fnout,'w') as outfile:
+                outfile.write(final)  
+            return
+        else:
+            return final

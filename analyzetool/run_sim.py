@@ -162,7 +162,7 @@ def run_simulation(n,simlen,cmd_liq):
     if sucess:
         liqproc.communicate()
 
-    killjobs([f'dynamic liquid-{n}'],0)
+    killjobs([f'dynamic liquid-{n}',f'gas-{n}'])
 
 def main():
     n = int(sys.argv[1])

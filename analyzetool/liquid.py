@@ -11,7 +11,6 @@ bar_unit = 0.060221417930000
 KB_J = 1.38064852e-23 #J/K
 E0 = 8.854187817620e-12
 DEB = 3.33564095198152e-30
-N_vis = 8.91e-4 #Pa.s
 R=1.9872036E-3
 
 ### dielectric calculation prefactor
@@ -243,7 +242,7 @@ class Liquid(object):
         self.path = sim_path
         self.T = temperature
         self.sysinfo = sysinfo
-
+        self.N_vis = 8.91e-4 #Pa.s water
 
         if '.xyz' not in xyzfile:
             xyzfile += '.xyz'
@@ -467,11 +466,16 @@ class Liquid(object):
             self.gasAvgKE = gasdata.avgKE
             self.gasKE = gasdata.KE
             self.stdGasPE = gasdata.stdPE
+            try:
+                self.gasAvgH = gasdata.avgH
+                self.gasH = gasdata.H
+            except:
+                self.gasAvgH = gasdata.avgPE
+                self.gasH = gasdata.PE
 
-            self.gasH = (gasdata.avgKE + gasdata.avgPE)
             self.Hmol = (self.avgKE+self.avgPE)/self.Nmol
 
-            self.HV2 = self.gasH - (self.Hmol) + kT
+            self.HV2 = self.gasAvgH - (self.Hmol) + kT
 
             self.HV = self.gasAvgPE - (self.PEmol) + kT
 
@@ -762,9 +766,13 @@ class Liquid(object):
             self.gasAvgKE = gasdata.avgKE
             self.gasKE = gasdata.KE
             self.stdGasPE = gasdata.stdPE
-            self.gasAvgH = gasdata.avgH
+            try:
+                self.gasAvgH = gasdata.avgH
+                self.gasH = gasdata.H
+            except:
+                self.gasAvgH = gasdata.avgPE
+                self.gasH = gasdata.PE
         
-        self.gasH = (gasdata.KE+gasdata.avgPE)
         self.Hmol = self.H/self.Nmol
         self.HV2 = self.gasAvgH - (self.Hmol) + kT
         self.HV = self.gasAvgPE - (self.PEmol) + kT
@@ -894,7 +902,7 @@ class Liquid(object):
             raise Exception('The file %s does not exist' % anal_fn)
 
 
-        for k,line in enumerate(log[0:500]):
+        for k,line in enumerate(log):
             tt = line.split()
             a = len(tt)
            
@@ -904,26 +912,19 @@ class Liquid(object):
                     break
                 except:
                     continue
-        g = log[k:]
-
-        g_data = []
-        for line in g:
-            a = line.strip('\n').split()
-            try:
-                data = [float(n) for n in a]
-                g_data.append(data)
-            except:
-                None
+        
+        g_data = log[k:]
+        g_data = [a.split() for a in g_data]
+        g_data = np.array(g_data,dtype=float)
 
         T = self.T
         def diff_correction(box_size,T):
             const = (2.837297)/(6*np.pi)
-            corr = (1e4)*const*KB_J*T/(N_vis*box_size*(1.0e-10))
+            corr = (1e4)*const*KB_J*T/(self.N_vis*box_size*(1.0e-10))
             return corr
 
         box_size = np.cbrt(self.avgVol)
         diff_correction = diff_correction(box_size,self.T)
-        g_data = np.array(g_data)
         
         self.diffusion = g_data[:,5]
         self.median_diffusion = np.median(self.diffusion)
