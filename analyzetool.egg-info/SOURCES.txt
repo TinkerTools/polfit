@@ -1,5 +1,6 @@
 setup.py
 analyzetool/__init__.py
+analyzetool/analyze_fit.py
 analyzetool/auxfitting.py
 analyzetool/auxtinker.py
 analyzetool/gas.py

@@ -95,6 +95,7 @@ class GasLog(object):
             
             self.KE = reject_outliers(self.KE[halfp:])
             self.avgKE = self.KE.mean()
+
             
 
             error.append(False)

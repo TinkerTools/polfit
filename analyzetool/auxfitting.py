@@ -149,8 +149,7 @@ def killjobs(progs,elfn=0):
 
 #######################
 HOME = os.path.expanduser('~')
-smallmoldir = "/work/roseane/HIPPO/small_molecules"
-datadir = f"{smallmoldir}/org_molecules/reference-data"
+datadir = f"/work/roseane/HIPPO/small_molecules/org_molecules/reference-data"
 tinkerpath = f'{HOME}/tinker'
 #######################
 
@@ -205,7 +204,6 @@ class Auxfit(object):
         self.cudad = 0
 
         self.datadir = datadir
-        self.smallmoldir = smallmoldir
     def prepare_directories(self):
         n = self.molnumber
         potdir = f"{self.basedir}/{n}/potential-test"
