@@ -1459,13 +1459,23 @@ def read_xyz_file(xyzfn,returnfile=False):
                 print("XYZ file does not exist!")
                 return
 
-    test = thefile[2].split()[0]
-    if test.isdigit():
-        st = 1
+    test1 = thefile[2].split()[0]
+    ni = 0
+    st = 2
+    if test1.isdigit():
         ni = 1
-    else:
-        st = 2
-        ni = 0
+    
+    s = thefile[1].split()
+    try:
+        s[ni+1] = float(s[ni+1])
+        s[ni+2] = float(s[ni+2])
+        s[ni+3] = float(s[ni+3])
+        if ni == 1:
+            int(s[0])
+        if s[ni].isalpha() and len(s[ni]) <= 2:
+            st = 1
+    except:
+        None
 
     natms = int(thefile[0].split()[0])
 
@@ -1689,7 +1699,7 @@ def rawxyz_txyz_notypes(xyzfn,fnout="",tinkerpath="~/tinker",xyztitle='XYZ coord
     else:
         return xyzfinal
 
-def write_rawxyz(xyzfn,writeout=True,fnout="",newcoords=[],xyztitle=''):
+def write_rawxyz(xyzfn,fnout="",newcoords=[],xyztitle=''):
     """Use typeout txyz for tinker xyz"""
     coords,atommap,thefile = read_xyz_file(xyzfn,True)
 

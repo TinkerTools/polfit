@@ -6,6 +6,7 @@ import sys
 import math
 from time import gmtime, strftime
 import subprocess, threading
+import itertools
 
 headers = {"prmheader": """##############################
 ##                          ##
@@ -188,16 +189,47 @@ digits            10
 printout          5000
 
 polarization      mutual               
-polar-eps         1e-06                     
+polar-eps         1e-06       
+
+fix-chgpen
 #########################
 """      
+def compute_total_charge(mcharges,factors):
+    return(mcharges*factors).sum()
+def multipole_factors(refprm):
+    nmpol = len(refprm['multipole'][1])
+    mcharges = [refprm['multipole'][1][k][0] for k in range(nmpol)]
+    mcharges = np.array(mcharges)
+    
+    factors = np.ones(nmpol,dtype=int)
+    
+    if np.abs(mcharges.sum()) < 1e-5:
+        return factors
+    
+    r = 20
+    ncombs = itertools.combinations_with_replacement(range(1,20),nmpol)
+    tested = []
+    for a in ncombs:
+        if np.array(a).sum == nmpol:
+            continue
+        for b in itertools.permutations(a):
+            b1 = list(b)
+            if b1 in tested:
+                continue
+            res = compute_total_charge(mcharges,b)
+            if np.abs(res) < 1e-5:
+                del tested
+                return np.array(b,dtype=int)
+            if b1 not in tested:
+                tested.append(b1)
 
 def process_prm(prmfn):
     
     f = open(prmfn)
-    prmfile = f.readlines()
+    prmfile0 = f.readlines()
     f.close()
     
+    prmfile = [line for line in prmfile0 if line[0] != '#']
     prmfile = np.array(prmfile)
     prmfile = prmfile[prmfile != '\n']
     nstart = 0
@@ -206,6 +238,24 @@ def process_prm(prmfn):
             nstart = k
             break
     
+    mfactors = []
+    for k,line in enumerate(prmfile0):
+        if 'multipole_factors' in line:
+            line = line.strip("\n")
+            s = line.split('=')
+            if len(s) < 2:
+                s = line.split(':')
+            
+            s2 = s[1].split(',')
+            s3 = []
+            for a in s2:
+                aa = [ai for ai in a if ai.isdigit()]
+                if len(aa) > 0:
+                    s3.append(int("".join(aa)))
+
+            mfactors = s3
+            break
+
     bg = np.array([a[:5] for a in prmfile])
     atms = prmfile[bg=='atom ']
     bnd = prmfile[nstart:][bg[nstart:]=='bond ']
@@ -305,16 +355,21 @@ def process_prm(prmfn):
         polarize[0][i] = v1
 
         ## test for amoeba 0.39 in polarize
-        itest = float(s[3])
-        if itest.is_integer():
-            polarize[1][i] = s[3:] 
-        else:
-            polarize[1][i] = s[4:]
-        ##
+        if len(s) > 3:
+            itest = float(s[3])
+            if itest.is_integer():
+                con = [int(a) for a in s[3:]]
+            else:
+                con = [int(a) for a in s[4:]]
+            polarize[1][i] = con
+            ##
 
     if len(mlines) > 0:    
         for i,line in enumerate(mlines[::5]):
+            if '#' in line:
+                line = line.split('#')[0]
             typs = line.split()[1:-1]
+            typs = [int(a) for a in typs]
             vals = [float(line.split()[-1])]
             
             for z,k in enumerate(mlines[i*5+1:i*5+5]):
@@ -402,6 +457,7 @@ def process_prm(prmfn):
             'angcflux': angcflux,
             'chgtrn': chgtrn,
             'multipole': multipoles,
+            'multipole_factors': mfactors,
             'exchpol': np.asarray(exchpol)  }
 
 
@@ -409,7 +465,8 @@ def process_prm(prmfn):
 
 def prm_from_key(keys,prmd={},exclude_prm=[]):
     indpterms = ["bond",'angle','strbnd','opbend','torsion',
-                 'bndcflux','angcflux',"polarize","chgpen"]
+                 'bndcflux','angcflux',"polarize","chgpen",
+                 'dispersion','repulsion','chgtrn']
 
     bond = [[],[],[]]
     angle = [[],[],[],[]]
@@ -421,6 +478,9 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
     angcflux = [[],[]]
     polarize = [[],[],[]]
     chgpen = []
+    dispersion = []
+    repulsion = []
+    chgtrn = []
 
     if isinstance(keys,str):
         keyfn = [keys]
@@ -512,6 +572,7 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
             s2 = prmfile[s].split('#')
             s1 = s2[0]
             typs = s1.split()[1:-1]
+            typs = [int(a) for a in typs]
             vals = [float(s1.split()[-1])]
             
             for z,l2 in enumerate(prmfile[s+1:s+5]):
@@ -526,15 +587,37 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
         if term == 'polarize':
             i = int(s[1])
             v1 = float(s[2])
-            v2 = float(s[3])
-            if v2 < 1 or not v2.is_integer():
-                nst = 4
-            else:
-                nst = 3 
             polarize[0].append(i)
             polarize[1].append(v1)
-            polarize[2].append(s[nst:]) 
+
+            if len(s) > 3:
+                v2 = float(s[3])
+                if v2 < 1 or not v2.is_integer():
+                    nst = 4
+                else:
+                    nst = 3 
+                
+                con = [int(a) for a in s[nst:]]
+                polarize[2].append(con) 
+            else:
+                polarize[2].append(0)
+
+        if term == 'chgpen':
+            chgpen.append([float(a) for a in s[1:]])
+
+        if term == 'dispersion':
+            dispersion.append([float(a) for a in s[1:]])
+        
+        if term == 'repulsion':
+            repulsion.append([float(a) for a in s[1:]])
+        
+        if term == 'chgtrn':
+            chgtrn.append([float(a) for a in s[1:]])
     
+    chgpen = np.array(chgpen)
+    dispersion = np.array(dispersion)
+    repulsion = np.array(repulsion)
+    chgtrn = np.array(chgtrn)
     prmout = {}
     for term in uniq:
         prmout[term] = locals()[term]
@@ -563,6 +646,52 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
                                 break
                     else:
                         print(f"{nnt} not in original list of types, skipping")
+            elif term == 'chgpen':
+                tt = np.array(prmd['types'])
+                for k in range(chgpen.shape[0]):
+                    typ = chgpen[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['chgpen'][ii[0]] = chgpen[k][1:]
+            elif term == 'dispersion':
+                tt = np.array(prmd['types'])
+                for k in range(dispersion.shape[0]):
+                    typ = dispersion[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['dispersion'][ii[0]] = dispersion[k][1]
+            elif term == 'repulsion':
+                tt = np.array(prmd['types'])
+                for k in range(repulsion.shape[0]):
+                    typ = repulsion[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['repulsion'][ii[0]] = repulsion[k][1:]
+            elif term == 'chgtrn':
+                tt = np.array(prmd['types'])
+                for k in range(chgtrn.shape[0]):
+                    typ = chgtrn[k][0]
+                    if typ in tt:  ## assumes type == class
+                        ii = np.where(typ==tt)[0]
+                        rtyp = tt[ii[0]]
+                    else:
+                        continue
+                    prmd['chgtrn'][ii[0]] = chgtrn[k][1:]
+            elif term == 'multipole':
+                for ii,typs in enumerate(multipole[0]):
+                    for kk,rtyps in enumerate(prmd[term][0]):
+                        if typs == rtyps:
+                            prmd[term][1][kk] = multipole[1][ii].copy()
+                            break
             else:
                 for k,val in enumerate(prmout[term][0]):
                     found = False
@@ -582,17 +711,16 @@ def prm_from_key(keys,prmd={},exclude_prm=[]):
     else:
         return prmout
 
-def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas'):
+def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas',path=""):
     deftprm = "~/tinker/params/hippo19.prm"
+    currdir = os.getcwd()
+
+    if len(path) > 0:
+        currdir = path
 
     prmkey = prmfn
-    if not os.path.isfile(prmfn):
+    if not os.path.isfile(prmfn) and not os.path.isfile(f"{currdir}/{prmfn}"):
         prmkey = deftprm
-    
-    if os.path.isfile(prmfn) and len(prmd) == 0:
-        prmdict = process_prm(prmfn)
-    if len(prmd) > 0:
-        prmdict = prmd
     
     if opt == 'liquid':
         keyfile = keyliq.replace("fn.prm",prmkey)
@@ -603,6 +731,14 @@ def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas'):
         with open(fnout,'w') as thefile:
             thefile.write(keyfile)
         return
+    
+    if len(prmd) == 0:
+        if os.path.isfile(prmfn):
+            prmdict = process_prm(prmfn)
+        if os.path.isfile(f"{currdir}/{prmfn}"):
+            prmdict = process_prm(f"{currdir}/{prmfn}")
+    else:
+        prmdict = prmd
 
     origtyp = np.array(prmdict['types'])
     sorttypes = np.argsort(origtyp)
@@ -732,7 +868,7 @@ def write_key(prmfn,fnout,prmout=[],prmd={},opt='gas'):
             thefile.write(keyfile+prmfile)
             return
 
-def write_prm(prmdict,fnout):
+def write_prm(prmdict,fnout,mfactors=[]):
 
     #Sort the types in ascending order
     origtyp = np.array(prmdict['types'])
@@ -756,18 +892,55 @@ def write_prm(prmdict,fnout):
     
     term = "multipole"
     prmfile += '\n\n'+headers[term]+'\n\n\n'
+    # get charge factors
+    factors = []
+    if 'multipole_factors' in prmdict.keys():
+        factors = np.array(prmdict['multipole_factors'],dtype=int)
+    if len(mfactors) != 0:
+        factors = np.array(mfactors,dtype=int)    
+    if len(factors) == 0:
+        factors = multipole_factors(prmdict)
+
+    nmpol = factors.shape[0]
+    l = ""
+    for k in range(nmpol-1):
+        if k != 0:
+            l+='+'
+        if factors[k] == 1:
+            l += f'c{k+1}'
+        else:
+            l += f'{factors[k]}*c{k+1}'
     for k,v in enumerate(prmdict[term][1]):
         v2 = prmdict[term][0][k]
         c = ""
         for ts in v2:
             c += f"{int(ts):4d} "
-        prmfile += f"{term:11s}{c:<27s}{v[0]:10.6f}\n"
+        
+        first_line = f"{term:11s}{c:<27s}{v[0]:10.6f}\n"
+        if k == nmpol-1:
+            if nmpol == 2:
+                first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -{l}"
+            elif nmpol > 2:
+                first_line = f"{term:11s}{c:<27s}{v[0]:10.6f} # -({l})"
+            if factors[k] > 1:
+                first_line += f"/{factors[k]}\n"
+            else:
+                first_line += f"\n"
+
+        prmfile += first_line
         prmfile += f"{' ':38s}{v[1]:10.6f} {v[2]:10.6f} {v[3]:10.6f}\n"
         prmfile += f"{' ':38s}{v[4]:10.6f}\n"
         prmfile += f"{' ':38s}{v[5]:10.6f} {v[6]:10.6f}\n"
         v9 = -(v[4]+v[6])
         prmfile += f"{' ':38}{v[7]:10.6f} {v[8]:10.6f} {v9:10.6f}\n"
     
+    # Multipole factors line
+    l = f"[ {factors[0]}"
+    for k,fc in enumerate(factors):
+        if k > 0:
+            l += f",{fc}"
+    prmfile += f"## multipole_factors = {l} ] \n"
+
     term = 'polarize'
     prmfile += '\n\n'+headers[term]+'\n\n'
     for k in sorttypes:
@@ -775,8 +948,10 @@ def write_prm(prmdict,fnout):
         v = prmdict[term][0][k]
         v2 = prmdict[term][1][k]
         c = ""
-        for ts in v2:
-            c += f"  {int(ts):3d}"
+
+        if isinstance(v2,list):
+            for ts in v2:
+                c += f"  {int(ts):3d}"
         prmfile += f"{term:16s} {t:<11d}{v:10.6f}{c}\n"
 
     term = "chgpen"
@@ -964,13 +1139,12 @@ def update_types(newprms,maptypes,mapclas=None,fnout=None):
         atmline[0] = newcl
         atoms.append(atmline)
         #polarize
-        v1 = [int(a) for a in newprms['polarize'][1][oldk]]
-        vnew = [maptypes[a] for a in v1]
+        if isinstance(newprms['polarize'][1][oldk],list):
+            v1 = [int(a) for a in newprms['polarize'][1][oldk]]
+            vnew = [maptypes[a] for a in v1]
+            polarize[1][k] = vnew
 
         polarize[0][k] = newprms['polarize'][0][oldk]
-        polarize[1][k] = vnew
-
-        # print(k,oldk,atmline,newcl,typ)
     
     updprms['polarize'] = polarize
     updprms['atom'] = atoms
@@ -1098,6 +1272,7 @@ def update_xyztypes(xyzfn,fnout="",newcoords=[],maptypes=None):
             s[0] = int(s[0]) ## atom ID
             s[5] = int(s[5]) ## type
         except:
+            newxyz += line
             continue
 
         if len(newcoords) > 0:
@@ -1189,7 +1364,7 @@ def combine_xyz(xyzfiles,fnout="",newcoords=[],maptypes=None,xyztitle='molecule'
         return newxyz
     
 
-def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyztitle=''):
+def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyztitle=[]):
     test = xyzfn.split('\n')
     bname = ""
     if len(test) > 2:
@@ -1204,10 +1379,7 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
             print("XYZ file does not exist!")
             return
     
-    if len(xyztitle) > 0:
-        title = xyztitle
-    else:
-        title = " ".join(infile[0].split()[1:])
+    title = " ".join(infile[0].split()[1:])
     
     xyzfiles = []
     start = 1
@@ -1220,7 +1392,11 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
     newfiles = []
     fnames = []
     for nmol,xyzf in enumerate(xyzfiles):
-        newxyz = [f" {natms[nmol]} {title}-mol{nmol+1} \n"]
+        if len(xyztitle) > 0:
+            title=xyztitle[nmol]
+            newxyz = [f" {natms[nmol]} {title} \n"]
+        else:
+            newxyz = [f" {natms[nmol]} {title}-mol{nmol+1} \n"]
         for k,line in enumerate(xyzf):
             try:
                 s = line.split()
@@ -1267,7 +1443,7 @@ def split_xyz(xyzfn,natms,writeout=True,fnout=[],newcoords=[],maptypes=None,xyzt
     else:
         return newfiles
     
-def read_xyz_file(xyzfn):
+def read_xyz_file(xyzfn,returnfile=False):
     if isinstance(xyzfn,list):
         thefile = xyzfn
     else:
@@ -1283,18 +1459,30 @@ def read_xyz_file(xyzfn):
                 print("XYZ file does not exist!")
                 return
 
-    test = thefile[2].split()[0]
-    if test.isdigit():
-        st = 1
+    test1 = thefile[2].split()[0]
+    ni = 0
+    st = 2
+    if test1.isdigit():
         ni = 1
-    else:
-        st = 2
-        ni = 0
+    
+    s = thefile[1].split()
+    try:
+        s[ni+1] = float(s[ni+1])
+        s[ni+2] = float(s[ni+2])
+        s[ni+3] = float(s[ni+3])
+        if ni == 1:
+            int(s[0])
+        if s[ni].isalpha() and len(s[ni]) <= 2:
+            st = 1
+    except:
+        None
+
+    natms = int(thefile[0].split()[0])
 
     coords = []
     atommap = []
     tinkertypes = []
-    for line in thefile[st:]:
+    for line in thefile[st:st+natms]:
         s = line.split()
         if len(s) == 0 or len(s) < 3:
             continue
@@ -1314,9 +1502,66 @@ def read_xyz_file(xyzfn):
     if len(tinkertypes) > 0:
         info = list(zip(tinkertypes,atommap))
 
+        if returnfile:
+            return coords,info,thefile
         return coords,info
     else:
+        if returnfile:
+            return coords,np.array(atommap),thefile
         return coords,np.array(atommap)
+    
+def number_of_frames(xyzfn):
+    if isinstance(xyzfn,list):
+        thefile = xyzfn
+        openfile = False
+    else:
+        test = xyzfn.split('\n')
+        if len(test) > 2:
+            thefile = xyzfn.split('\n')
+            openfile = False
+        else:
+            if os.path.isfile(xyzfn):
+                openfile = True
+            else:
+                print("XYZ file does not exist!")
+                return
+
+    if openfile:
+        thefile = []
+        lread = 0
+        f = open(xyzfn)
+        for a in range(3):
+            thefile += f.readline()
+            lread+=1
+        f.close()
+
+        thefile = "".join(thefile)
+        thefile = thefile.split('\n')
+    
+    test = thefile[2].split()[0]
+    if test.isdigit():
+        st = 1
+        ni = 1
+    else:
+        st = 2
+        ni = 0
+
+    natms = int(thefile[0].split()[0])
+    nlines = st+natms
+
+    if openfile:
+        lread = 0
+        with open(xyzfn) as thefile:
+            for line in thefile:
+                if line != '\n':
+                    lread += 1
+        
+        nframes = lread/nlines
+    else:
+        thefile = [a for a in thefile if a != '\n']
+        nframes = len(thefile)/nlines
+    
+    return nframes
 
 def rawxyz_txyz(xyzfn,typemap,connect,fnout="",xyztitle='XYZ coords'):
     test = xyzfn.split('\n')
@@ -1453,3 +1698,32 @@ def rawxyz_txyz_notypes(xyzfn,fnout="",tinkerpath="~/tinker",xyztitle='XYZ coord
             outfile.write(keyin)
     else:
         return xyzfinal
+
+def write_rawxyz(xyzfn,fnout="",newcoords=[],xyztitle=''):
+    """Use typeout txyz for tinker xyz"""
+    coords,atommap,thefile = read_xyz_file(xyzfn,True)
+
+    natms = coords.shape[0]
+
+    newxyz = f"{natms}\n"
+    if len(xyztitle) == 0:
+        newxyz += "".join(thefile[1:2])
+    else:
+        newxyz += xyztitle.strip('\n') + '\n'
+    
+    for k,s in enumerate(coords):
+        try:
+            el = atommap[k][1]
+        except:
+            el = atommap[k]
+        
+        if len(newcoords) > 0:
+            s = newcoords[k]   
+                        
+        newxyz += f"{el:2s}  {s[0]:12.6f} {s[1]:12.6f} {s[2]:12.6f} \n"
+        
+    if len(fnout) > 0:
+        with open(fnout,'w') as outfile:
+            outfile.write("".join(newxyz))  
+    else:
+        return newxyz
