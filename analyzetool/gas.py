@@ -75,16 +75,24 @@ class GasLog(object):
 
         elif len(edyn) != 0:
             self.PE = np.array(edyn)
+            self.KE = np.array(kdyn)
+            
             halfp = int(self.PE.shape[0]/2)
 
             if halfp > 500:
                 halfp = 500
-
+            
+            l1 = self.PE.shape[0]
+            l2 = self.KE.shape[0]
+            
+            maxl = min(l1,l2)
+            self.H = self.PE[halfp:maxl]+self.KE[halfp:maxl]
+            self.avgH = self.H.mean()
             self.PE = self.PE[halfp:]
             self.avgPE = self.PE.mean()
             self.stdPE = self.PE.std()
 
-            self.KE = np.array(kdyn)
+            
             self.KE = reject_outliers(self.KE[halfp:])
             self.avgKE = self.KE.mean()
             

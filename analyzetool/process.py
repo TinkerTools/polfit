@@ -205,10 +205,13 @@ def next_folder_number(savedir,basenm,isdir=False,makedir=False):
     
     nums = [0]
     for a in files:
-        nk1 = int(a.split('-')[-1])
-        nums.append(nk1)
+        try:
+            nk1 = int(a.split('-')[-1])
+            nums.append(nk1)
+        except:
+            None
     nums = sorted(nums)
-    fnm = f"res-{nums[-1]+1}"
+    fnm = f"{basenm}-{nums[-1]+1}"
 
     if isdir and makedir:
         if not os.path.isdir(f"{savedir}/{fnm}"):

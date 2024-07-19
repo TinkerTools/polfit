@@ -373,6 +373,7 @@ class Liquid(object):
                 if nframes < eq:
                     if nframes > 1:
                         eq = int(nframes/2)
+                        self.equil = eq
                     else:
                         self.error = True
 
@@ -466,11 +467,16 @@ class Liquid(object):
             self.gasAvgKE = gasdata.avgKE
             self.gasKE = gasdata.KE
             self.stdGasPE = gasdata.stdPE
+            try:
+                self.gasAvgH = gasdata.avgH
+                self.gasH = gasdata.H
+            except:
+                self.gasAvgH = gasdata.avgPE
+                self.gasH = gasdata.PE
 
-            self.gasH = (gasdata.avgKE + gasdata.avgPE)
             self.Hmol = (self.avgKE+self.avgPE)/self.Nmol
 
-            self.HV2 = self.gasH - (self.Hmol) + kT
+            self.HV2 = self.gasAvgH - (self.Hmol) + kT
 
             self.HV = self.gasAvgPE - (self.PEmol) + kT
 
@@ -705,6 +711,7 @@ class Liquid(object):
         if nframes < eq:
             if nframes != 0:
                 eq = int(nframes/2)
+                self.equil = eq
             else:
                 self.error = True
                 return
@@ -760,9 +767,13 @@ class Liquid(object):
             self.gasAvgKE = gasdata.avgKE
             self.gasKE = gasdata.KE
             self.stdGasPE = gasdata.stdPE
-            self.gasAvgH = gasdata.avgH
+            try:
+                self.gasAvgH = gasdata.avgH
+                self.gasH = gasdata.H
+            except:
+                self.gasAvgH = gasdata.avgPE
+                self.gasH = gasdata.PE
         
-        self.gasH = (gasdata.KE+gasdata.avgPE)
         self.Hmol = self.H/self.Nmol
         self.HV2 = self.gasAvgH - (self.Hmol) + kT
         self.HV = self.gasAvgPE - (self.PEmol) + kT
